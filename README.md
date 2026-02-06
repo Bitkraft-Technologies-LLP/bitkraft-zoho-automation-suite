@@ -1,10 +1,10 @@
-# Zoho Bill Automator
+# Bitkraft Zoho Automation Suite
 
-An intelligent automation system for processing invoices and generating bank payment files using Zoho Books API and AI-powered data extraction.
+A comprehensive automation suite for Zoho Books that streamlines invoice processing, currency exchange rate management, and payment file generation using AI-powered data extraction and official ICEGATE integration.
 
 ## Features
 
-### Invoice Processing
+### 📄 Invoice Processing
 
 - 🤖 **AI-Powered Invoice Parsing**: Automatically extracts vendor details, line items, taxes, and amounts from PDF invoices using Google Gemini AI
 - 📄 **Multimodal Support**: Handles both text-based and image-based (scanned) invoices
@@ -20,7 +20,7 @@ An intelligent automation system for processing invoices and generating bank pay
 - 📁 **Batch Processing**: Process multiple invoices at once from a directory
 - 🗄️ **Auto-Archival**: Automatically archives processed invoices to prevent reprocessing
 
-### Currency Exchange Rate Automation
+### 💱 Currency Exchange Rate Automation
 
 - 💱 **ICEGATE Integration**: Automatically fetches official exchange rates from ICEGATE (CBIC)
 - 📅 **Date-Specific Rates**: Fetch rates applicable for any specific date (past or future)
@@ -29,14 +29,17 @@ An intelligent automation system for processing invoices and generating bank pay
 - 🛡️ **Feed Safety**: Automatically detects and disables conflicting Exchange Rate Feeds in Zoho
 - ⏰ **Scheduled Updates**: Can be configured to run daily via cron
 
-### Payment Processing
+### 🏦 Payment Processing
 
 - 🏦 **Bank Payment File Generation**: Creates bank-ready XLSX and CSV files for bulk payments
+- 💼 **TDS-Aware Calculations**: Accurately calculates net payable amounts considering TDS deductions
 - ⚙️ **Configurable Paths**: All input/output directories are customizable via environment variables
+- 📊 **Payment Summaries**: Generates detailed payment summary reports in CSV format
 
 ## Prerequisites
 
 - Node.js (v14 or higher)
+- Python 3.x (for currency exchange automation)
 - TypeScript
 - Zoho Books account with API access
 - Google Gemini API key
@@ -46,8 +49,8 @@ An intelligent automation system for processing invoices and generating bank pay
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/zoho-bill-automator.git
-cd zoho-bill-automator
+git clone https://github.com/YOUR_USERNAME/bitkraft-zoho-automation-suite.git
+cd bitkraft-zoho-automation-suite
 ```
 
 2. Install dependencies:
@@ -142,7 +145,7 @@ crontab -e
 Add this line:
 
 ```
-0 9 * * * /path/to/zoho-bill-automator/src/currency_exchange/run_daily.sh >> /tmp/zoho_cron.log 2>&1
+0 9 * * * /path/to/bitkraft-zoho-automation-suite/src/currency_exchange/run_daily.sh >> /tmp/zoho_cron.log 2>&1
 ```
 
 ## Configuration
