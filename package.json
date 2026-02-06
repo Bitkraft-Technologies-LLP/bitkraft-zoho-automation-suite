@@ -1,0 +1,27 @@
+{
+  "name": "zoho-bill-automator",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@types/pdf-parse": "^1.1.5",
+    "axios": "^1.13.4",
+    "dotenv": "^17.2.3",
+    "form-data": "^4.0.5",
+    "openai": "^6.17.0",
+    "pdf-parse": "^1.1.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.0"
+  }
+}

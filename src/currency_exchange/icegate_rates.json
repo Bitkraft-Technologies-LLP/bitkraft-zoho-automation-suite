@@ -1,0 +1,162 @@
+{
+  "notificationNumber": "07/2026",
+  "status": 1,
+  "notPublishDate": "06-02-2026",
+  "currencyDetail": [
+    {
+      "currencyCode": "AED",
+      "currencyDesc": "UAE Dirham",
+      "cbicImport": 25.4,
+      "cbicExport": 23.9,
+      "units": "1.0"
+    },
+    {
+      "currencyCode": "AUD",
+      "currencyDesc": "Australian Dollar",
+      "cbicImport": 64.45,
+      "cbicExport": 61.6,
+      "units": "1.0"
+    },
+    {
+      "currencyCode": "BHD",
+      "currencyDesc": "Bahraini Dinar",
+      "cbicImport": 249.0,
+      "cbicExport": 231.5,
+      "units": "1.0"
+    },
+    {
+      "currencyCode": "CAD",
+      "currencyDesc": "Canadian Dollar",
+      "cbicImport": 67.25,
+      "cbicExport": 65.0,
+      "units": "1.0"
+    },
+    {
+      "currencyCode": "CHF",
+      "currencyDesc": "Swiss Franc",
+      "cbicImport": 119.0,
+      "cbicExport": 113.75,
+      "units": "1.0"
+    },
+    {
+      "currencyCode": "CNY",
+      "currencyDesc": "Chinese Yuan",
+      "cbicImport": 13.25,
+      "cbicExport": 9.9,
+      "units": "1.0"
+    },
+    {
+      "currencyCode": "DKK",
+      "currencyDesc": "Danish Kroner",
+      "cbicImport": 14.5,
+      "cbicExport": 14.1,
+      "units": "1.0"
+    },
+    {
+      "currencyCode": "EUR",
+      "currencyDesc": "EURO",
+      "cbicImport": 108.5,
+      "cbicExport": 104.85,
+      "units": "1.0"
+    },
+    {
+      "currencyCode": "GBP",
+      "currencyDesc": "Pound Sterling",
+      "cbicImport": 125.3,
+      "cbicExport": 121.3,
+      "units": "1.0"
+    },
+    {
+      "currencyCode": "HKD",
+      "currencyDesc": "Hong Kong Dollar",
+      "cbicImport": 11.75,
+      "cbicExport": 11.45,
+      "units": "1.0"
+    },
+    {
+      "currencyCode": "JPY",
+      "currencyDesc": "Japanese Yen",
+      "cbicImport": 58.65,
+      "cbicExport": 56.8,
+      "units": "100.0"
+    },
+    {
+      "currencyCode": "KRW",
+      "currencyDesc": "Korean won",
+      "cbicImport": 6.35,
+      "cbicExport": 6.0,
+      "units": "100.0"
+    },
+    {
+      "currencyCode": "KWD",
+      "currencyDesc": "Kuwaiti Dinar",
+      "cbicImport": 303.8,
+      "cbicExport": 285.4,
+      "units": "1.0"
+    },
+    {
+      "currencyCode": "NOK",
+      "currencyDesc": "Norwegian Kroner",
+      "cbicImport": 9.45,
+      "cbicExport": 9.2,
+      "units": "1.0"
+    },
+    {
+      "currencyCode": "NZD",
+      "currencyDesc": "New Zealand Dollar",
+      "cbicImport": 55.5,
+      "cbicExport": 52.8,
+      "units": "1.0"
+    },
+    {
+      "currencyCode": "QAR",
+      "currencyDesc": "Qatari Riyal",
+      "cbicImport": 25.6,
+      "cbicExport": 24.1,
+      "units": "1.0"
+    },
+    {
+      "currencyCode": "SAR",
+      "currencyDesc": "Saudi Arabian Riyal",
+      "cbicImport": 24.9,
+      "cbicExport": 23.5,
+      "units": "1.0"
+    },
+    {
+      "currencyCode": "SEK",
+      "currencyDesc": "Swedish Kroner",
+      "cbicImport": 10.15,
+      "cbicExport": 9.9,
+      "units": "1.0"
+    },
+    {
+      "currencyCode": "SGD",
+      "currencyDesc": "Singapore Dollar",
+      "cbicImport": 72.25,
+      "cbicExport": 69.8,
+      "units": "1.0"
+    },
+    {
+      "currencyCode": "TRY",
+      "currencyDesc": "Turkish Lira",
+      "cbicImport": 2.15,
+      "cbicExport": 2.0,
+      "units": "1.0"
+    },
+    {
+      "currencyCode": "USD",
+      "currencyDesc": "US Dollar",
+      "cbicImport": 91.35,
+      "cbicExport": 89.65,
+      "units": "1.0"
+    },
+    {
+      "currencyCode": "ZAR",
+      "currencyDesc": "South African Rand",
+      "cbicImport": 5.75,
+      "cbicExport": 5.45,
+      "units": "1.0"
+    }
+  ],
+  "error": null
+}
