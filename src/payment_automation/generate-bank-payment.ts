@@ -1,4 +1,4 @@
-import { ZohoClient } from './src/zoho/zoho-client';
+import { ZohoClient } from '../invoice_processing/zoho/zoho-client';
 import fs from 'fs';
 import path from 'path';
 import * as XLSX from 'xlsx';

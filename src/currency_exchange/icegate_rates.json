@@ -1,7 +1,7 @@
 {
-  "notificationNumber": "07/2026",
+  "notificationNumber": "08/2026",
   "status": 1,
-  "notPublishDate": "06-02-2026",
+  "notPublishDate": "07-02-2026",
   "currencyDetail": [
     {
       "currencyCode": "AED",
@@ -41,8 +41,8 @@
     {
       "currencyCode": "CNY",
       "currencyDesc": "Chinese Yuan",
-      "cbicImport": 13.25,
-      "cbicExport": 9.9,
+      "cbicImport": 13.2,
+      "cbicExport": 12.8,
       "units": "1.0"
     },
     {

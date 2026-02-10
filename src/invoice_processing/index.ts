@@ -43,7 +43,7 @@ async function processInvoice(filePath: string, zoho: ZohoClient, orgGst: string
     // Zoho requires vendor_id, not just vendor_name.
     console.log(`Looking up vendor: ${billData.vendor_name} (GST: ${billData.vendor_gst || 'Not found in invoice'})...`);
     const vendors = await zoho.getVendors() || [];
-    
+    //console.log("Vendors...", vendors.filter((e: any) => e.company_name.toLowerCase().includes("curly")))
     // 1. Try matching by GST number if available
     let vendor = null;
     if (billData.vendor_gst) {
@@ -58,7 +58,7 @@ async function processInvoice(filePath: string, zoho: ZohoClient, orgGst: string
     // 2. Fallback to name-based matching if no GST match
     if (!vendor) {
       vendor = vendors.find((v: any) =>
-        v.vendor_name.toLowerCase().includes(billData.vendor_name.toLowerCase()),
+        v.company_name.toLowerCase().includes(billData.vendor_name.toLowerCase()),
       );
       if (vendor) console.log(`Found vendor by Name match: ${vendor.vendor_name}`);
     }
@@ -119,7 +119,7 @@ async function processInvoice(filePath: string, zoho: ZohoClient, orgGst: string
               const b = billData.vendor_bank_details;
               notes += `\nBank Details:\nAccount: ${b.account_number || 'N/A'}\nIFSC: ${b.ifsc_code || 'N/A'}\nBank: ${b.bank_name || 'N/A'}`;
           }
-
+          
           // Complete Payload
           const newVendorData: any = {
             contact_name: billData.vendor_name,
@@ -157,15 +157,32 @@ async function processInvoice(filePath: string, zoho: ZohoClient, orgGst: string
     }
 
 
-    // Prepare final payload for Zoho
+    console.log("GST....", vendor.gst_no == '', vendor)
+
+    // Modify line items for unregistered vendors
+    const processedLineItems = billData.line_items.map((item: any) => {
+      // Check if vendor has no GST number (unregistered)
+      if (!billData.vendor_gst) {
+        const { tax_id, tax_exemption_code, tax_exemption_id, ...itemWithoutTax } = item;
+        return {
+          ...itemWithoutTax
+          // No tax_id, no tax_exemption - completely tax-free line item
+        };
+      }
+      return item;
+    });
+
     const finalBillData: any = {
       vendor_id: vendor.contact_id || vendor.vendor_id,
       bill_number: billData.bill_number,
       date: billData.date,
       due_date: billData.due_date,
-      line_items: billData.line_items,
-      status: 'draft' // Create as draft for human review
+      line_items: processedLineItems,
+      is_reverse_charge_applied: false,
+      status: 'draft'
     };
+
+    console.log("Final Bill Payload:", JSON.stringify(finalBillData, null, 2));
 
     // TDS Deduction Logic
     console.log("Checking for TDS settings in vendor profile...");

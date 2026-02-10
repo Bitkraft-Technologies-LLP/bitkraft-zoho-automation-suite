@@ -2,6 +2,18 @@
 
 A comprehensive automation suite for Zoho Books that streamlines invoice processing, currency exchange rate management, and payment file generation using AI-powered data extraction and official ICEGATE integration.
 
+## 📖 Case Studies
+
+Explore our detailed journey of building this suite using Gen AI, including technical challenges, system architectures, and business impact:
+
+- [**Master Case Study Overview**](./Zoho%20Automation%20Case%20Study/zoho_automation_case_study.md)
+- [📄 AI-Powered Invoice Processing](./Zoho%20Automation%20Case%20Study/case_study_invoice_processing.md)
+- [💱 ICEGATE Currency Automation](./Zoho%20Automation%20Case%20Study/case_study_currency_automation.md)
+- [🏦 Bank Payment Generation](./Zoho%20Automation%20Case%20Study/case_study_payment_automation.md)
+- [🛠️ Visual Assets & Architecture Guide](./Zoho%20Automation%20Case%20Study/visual_assets_guide.md)
+
+_See the [Case Study Package Guide](./Zoho%20Automation%20Case%20Study/case_study_package_guide.md) for a complete index of all documentation._
+
 ## Features
 
 ### 📄 Invoice Processing
@@ -195,6 +207,14 @@ All paths and formats are configurable via `.env`:
 │   └── payment_automation/
 │       ├── generate-bank-payment.ts # Bank payment file generator
 │       └── generate-payments-csv.ts # Payment summary CSV generator
+├── Zoho Automation Case Study/ # Documentation package
+│   ├── zoho_automation_case_study.md
+│   ├── case_study_invoice_processing.md
+│   ├── case_study_currency_automation.md
+│   ├── case_study_payment_automation.md
+│   ├── case_study_package_guide.md
+│   ├── visual_assets_guide.md
+│   └── visuals/              # Infographics & charts
 ├── data/                     # Runtime data (gitignored)
 │   ├── invoices/             # PDF invoices to process
 │   ├── payments/             # Payment records
@@ -202,7 +222,8 @@ All paths and formats are configurable via `.env`:
 │   └── bank_payment_upload/  # Bank upload files
 ├── setup-org.ts              # Organization setup utility
 ├── .env.example              # Environment variables template
-└── README.md
+├── README.md
+└── package.json
 ```
 
 ## Troubleshooting
