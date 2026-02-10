@@ -43,7 +43,7 @@ async function processInvoice(filePath: string, zoho: ZohoClient, orgGst: string
     // Zoho requires vendor_id, not just vendor_name.
     console.log(`Looking up vendor: ${billData.vendor_name} (GST: ${billData.vendor_gst || 'Not found in invoice'})...`);
     const vendors = await zoho.getVendors() || [];
-    //console.log("Vendors...", vendors.filter((e: any) => e.company_name.toLowerCase().includes("curly")))
+    
     // 1. Try matching by GST number if available
     let vendor = null;
     if (billData.vendor_gst) {
@@ -157,7 +157,6 @@ async function processInvoice(filePath: string, zoho: ZohoClient, orgGst: string
     }
 
 
-    console.log("GST....", vendor.gst_no == '', vendor)
 
     // Modify line items for unregistered vendors
     const processedLineItems = billData.line_items.map((item: any) => {
@@ -172,6 +171,7 @@ async function processInvoice(filePath: string, zoho: ZohoClient, orgGst: string
       return item;
     });
 
+        // Prepare final payload for Zoho
     const finalBillData: any = {
       vendor_id: vendor.contact_id || vendor.vendor_id,
       bill_number: billData.bill_number,
@@ -181,8 +181,6 @@ async function processInvoice(filePath: string, zoho: ZohoClient, orgGst: string
       is_reverse_charge_applied: false,
       status: 'draft'
     };
-
-    console.log("Final Bill Payload:", JSON.stringify(finalBillData, null, 2));
 
     // TDS Deduction Logic
     console.log("Checking for TDS settings in vendor profile...");
