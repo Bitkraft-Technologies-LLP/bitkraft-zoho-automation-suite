@@ -227,55 +227,86 @@ async function processInvoice(filePath: string, zoho: ZohoClient, orgGst: string
 }
 
 async function main() {
-  const filePath = process.argv[2];
-  const dryRun = process.argv.includes("--dry-run");
-
   const zoho = new ZohoClient();
   const orgGst = process.env.ZOHO_ORG_GST;
   const orgName = process.env.ZOHO_ORG_NAME || "Your Organization";
   const orgState = process.env.ZOHO_ORG_STATE;
+
+  let filePath = process.argv[2];
+  // Expand tilde (~) to home directory
+  if (filePath && filePath.startsWith('~')) {
+    const homedir = require('os').homedir();
+    filePath = path.join(homedir, filePath.slice(1));
+  }
+  
+  const dryRun = process.argv.includes("--dry-run");
   
   const invoicesDir = process.env.INVOICES_DIR || "./invoices";
-  const archiveDir = process.env.INVOICES_ARCHIVE_DIR || "./invoices/archive";
+  let archiveDir = process.env.INVOICES_ARCHIVE_DIR || "./invoices/archive";
 
   try {
+    let targetDir = invoicesDir;
+    let singleFile = filePath;
+
+    // If an argument is provided, check if it's a file or directory
+    if (filePath) {
+      if (fs.existsSync(filePath)) {
+        const stats = fs.statSync(filePath);
+        if (stats.isDirectory()) {
+          targetDir = filePath;
+          singleFile = undefined;
+          // When a path is provided, archive inside that path
+          archiveDir = path.join(filePath, 'archive');
+          console.log(`Mode: Batch processing (Directory: ${targetDir})`);
+        } else {
+          // When a single file path is provided, archive in an archive folder next to that file
+          archiveDir = path.join(path.dirname(filePath), 'archive');
+          console.log("Mode: Single file processing");
+        }
+      } else {
+        console.error(`Error: Path ${filePath} does not exist.`);
+        process.exit(1);
+      }
+    }
+
     // Ensure archive directory exists
     if (!fs.existsSync(archiveDir)) {
       fs.mkdirSync(archiveDir, { recursive: true });
     }
 
-    if (filePath) {
+    if (singleFile) {
       // Single file mode
-      console.log("Mode: Single file processing");
-      const success = await processInvoice(filePath, zoho, orgGst, orgName, orgState, dryRun);
+      const success = await processInvoice(singleFile, zoho, orgGst, orgName, orgState, dryRun);
       
       if (success && !dryRun) {
         // Archive the file
-        const fileName = path.basename(filePath);
+        const fileName = path.basename(singleFile);
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
         const archivePath = path.join(archiveDir, `${timestamp}_${fileName}`);
-        fs.renameSync(path.resolve(filePath), archivePath);
+        fs.renameSync(path.resolve(singleFile), archivePath);
         console.log(`\n📦 Archived to: ${archivePath}`);
       }
       
       process.exit(success ? 0 : 1);
     } else {
       // Batch mode
-      console.log("Mode: Batch processing");
-      console.log(`Scanning directory: ${invoicesDir}`);
+      if (!filePath) {
+        console.log("Mode: Batch processing (Default)");
+        console.log(`Scanning directory: ${targetDir}`);
+      }
       
-      if (!fs.existsSync(invoicesDir)) {
-        console.error(`Error: Directory ${invoicesDir} does not exist.`);
+      if (!fs.existsSync(targetDir)) {
+        console.error(`Error: Directory ${targetDir} does not exist.`);
         console.log("Please create the directory and add PDF invoices to process.");
         process.exit(1);
       }
 
-      const files = fs.readdirSync(invoicesDir)
+      const files = fs.readdirSync(targetDir)
         .filter(file => file.toLowerCase().endsWith('.pdf'))
-        .map(file => path.join(invoicesDir, file));
+        .map(file => path.join(targetDir, file));
 
       if (files.length === 0) {
-        console.log("No PDF files found in the invoices directory.");
+        console.log(`No PDF files found in the directory: ${targetDir}`);
         process.exit(0);
       }
 

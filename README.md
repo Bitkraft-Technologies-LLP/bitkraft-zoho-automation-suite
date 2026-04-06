@@ -10,7 +10,7 @@ Explore our detailed journey of building this suite using Gen AI, including tech
 - [📄 AI-Powered Invoice Processing](./Zoho%20Automation%20Case%20Study/case_study_invoice_processing.md)
 - [💱 ICEGATE Currency Automation](./Zoho%20Automation%20Case%20Study/case_study_currency_automation.md)
 - [🏦 Bank Payment Generation](./Zoho%20Automation%20Case%20Study/case_study_payment_automation.md)
-- [🛠️ Visual Assets & Architecture Guide](./Zoho%20Automation%20Case%20Study/visual_assets_guide.md)
+- [🛠️ Visual Assets &amp; Architecture Guide](./Zoho%20Automation%20Case%20Study/visual_assets_guide.md)
 
 _See the [Case Study Package Guide](./Zoho%20Automation%20Case%20Study/case_study_package_guide.md) for a complete index of all documentation._
 
@@ -78,11 +78,11 @@ cp .env.example .env
 ```
 
 4. Edit `.env` with your actual credentials:
+
    - Zoho Books API credentials
    - Google Gemini API key
    - Organization details (GST, Name, State)
    - Directory paths (optional, defaults provided)
-
 5. Run the organization setup (first time only):
 
 ```bash
@@ -164,8 +164,8 @@ Add this line:
 
 All paths and formats are configurable via `.env`:
 
-| Variable                  | Description                            | Default                      |
-| ------------------------- | -------------------------------------- | ---------------------------- |
+| Variable                    | Description                            | Default                        |
+| --------------------------- | -------------------------------------- | ------------------------------ |
 | `INVOICES_DIR`            | Directory to scan for invoice PDFs     | `./data/invoices`            |
 | `INVOICES_ARCHIVE_DIR`    | Archive for processed invoices         | `./data/invoices/archive`    |
 | `PAYMENTS_SUMMARY_DIR`    | Payment summary CSV location           | `./data/payments_summary`    |
