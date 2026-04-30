@@ -13,6 +13,19 @@ export class ZohoClient {
   private orgId: string;
   private region: string;
 
+  // Simple in-memory cache to prevent rate-limiting during batch processing
+  private cache: {
+    accounts: any[] | null;
+    taxes: any[] | null;
+    vendors: any[] | null;
+    vendorDetails: Map<string, any>;
+  } = {
+    accounts: null,
+    taxes: null,
+    vendors: null,
+    vendorDetails: new Map(),
+  };
+
   constructor() {
     this.clientId = process.env.ZOHO_CLIENT_ID || "";
     this.clientSecret = process.env.ZOHO_CLIENT_SECRET || "";
@@ -95,22 +108,31 @@ export class ZohoClient {
     }
   }
 
-  async getVendors() {
+  async getVendors(): Promise<any[]> {
+    if (this.cache.vendors) return this.cache.vendors;
+    
     const token = await this.getAccessToken();
     const url = `https://www.zohoapis.${this.region}/books/v3/vendors?organization_id=${this.orgId}`;
     const response = await axios.get(url, {
       headers: { Authorization: `Zoho-oauthtoken ${token}` },
     });
-    return response.data.contacts || [];
+    this.cache.vendors = response.data.contacts || [];
+    return this.cache.vendors!;
   }
 
   async getVendor(vendorId: string) {
+    if (this.cache.vendorDetails.has(vendorId)) {
+      return this.cache.vendorDetails.get(vendorId);
+    }
+
     const token = await this.getAccessToken();
     const url = `https://www.zohoapis.${this.region}/books/v3/contacts/${vendorId}?organization_id=${this.orgId}`;
     const response = await axios.get(url, {
       headers: { Authorization: `Zoho-oauthtoken ${token}` },
     });
-    return response.data.contact;
+    const vendor = response.data.contact;
+    this.cache.vendorDetails.set(vendorId, vendor);
+    return vendor;
   }
 
   async createVendor(vendorData: any) {
@@ -137,22 +159,28 @@ export class ZohoClient {
     }
   }
 
-  async getAccounts() {
+  async getAccounts(): Promise<any[]> {
+    if (this.cache.accounts) return this.cache.accounts;
+
     const token = await this.getAccessToken();
     const url = `https://www.zohoapis.${this.region}/books/v3/chartofaccounts?organization_id=${this.orgId}`;
     const response = await axios.get(url, {
       headers: { Authorization: `Zoho-oauthtoken ${token}` },
     });
-    return response.data.chartofaccounts || [];
+    this.cache.accounts = response.data.chartofaccounts || [];
+    return this.cache.accounts!;
   }
 
-  async getTaxes() {
+  async getTaxes(): Promise<any[]> {
+    if (this.cache.taxes) return this.cache.taxes;
+
     const token = await this.getAccessToken();
     const url = `https://www.zohoapis.${this.region}/books/v3/settings/taxes?organization_id=${this.orgId}`;
     const response = await axios.get(url, {
       headers: { Authorization: `Zoho-oauthtoken ${token}` },
     });
-    return response.data.taxes || [];
+    this.cache.taxes = response.data.taxes || [];
+    return this.cache.taxes!;
   }
 
   async uploadAttachment(billId: string, filePath: string) {

@@ -13,6 +13,40 @@ const model = genAI.getGenerativeModel({
     }
 });
 
+// ---------------------------------------------------------------------------
+// Retry helper — retries on transient HTTP 503 / 429 errors with exponential
+// backoff + jitter. Surfaces the error immediately for all other failures.
+// ---------------------------------------------------------------------------
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxAttempts = 4,
+  baseDelayMs = 3000
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastError = err;
+      const message: string = err?.message ?? String(err);
+      const isRetryable =
+        message.includes('503') ||
+        message.includes('Service Unavailable') ||
+        message.includes('429') ||
+        message.includes('Resource has been exhausted');
+
+      if (!isRetryable || attempt === maxAttempts) throw err;
+
+      const delay = baseDelayMs * Math.pow(2, attempt - 1) + Math.random() * 1000;
+      console.warn(
+        `  ⚠️  Gemini API busy (attempt ${attempt}/${maxAttempts}). Retrying in ${Math.round(delay / 1000)}s…`
+      );
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw lastError;
+}
+
 export async function extractTextFromPDF(filePath: string): Promise<string> {
   const dataBuffer = fs.readFileSync(filePath);
   const data = await pdf(dataBuffer);
@@ -114,7 +148,7 @@ export async function parseInvoiceWithAI(
     });
   }
 
-  const result = await model.generateContent(requestParts);
+  const result = await withRetry(() => model.generateContent(requestParts));
   const response = await result.response;
   const content = response.text();
   
@@ -122,5 +156,6 @@ export async function parseInvoiceWithAI(
   
   const jsonContent = content.replace(/```json\n?|\n?```/g, '').trim();
   
-  return JSON.parse(jsonContent);
+  const parsed = JSON.parse(jsonContent);
+  return Array.isArray(parsed) ? parsed[0] : parsed;
 }
