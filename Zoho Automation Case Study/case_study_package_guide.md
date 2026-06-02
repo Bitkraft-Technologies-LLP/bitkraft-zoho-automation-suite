@@ -2,10 +2,10 @@
 
 ## Documentation Created
 
-### Case Study Documents (4 total)
+### Case Study Documents (5 total)
 
 1. **zoho_automation_case_study.md** (Master Case Study)
-   - Comprehensive overview of all three solutions
+   - Comprehensive overview of all solutions
    - Personal narrative of AI-assisted development journey
    - **Visuals embedded:**
      - Three Solutions Infographic (after introduction)
@@ -36,19 +36,25 @@
      - Payment System Architecture (in final system)
      - Development Timeline infographic (showing all 3 projects)
 
+5. **case_study_web_dashboard.md**
+   - Deep dive into the premium single-page web Control Center
+   - Decoupling OAuth token race conditions and real-time SSE execution logs
+   - **Visuals embedded:**
+     - Control Hub Web System Architecture Mermaid diagram
+
 ### Supporting Documents (3 total)
 
-5. **visual_assets_guide.md**
+6. **visual_assets_guide.md**
    - Complete guide to all visual assets
    - Mermaid diagram source code
    - Usage instructions and recommendations
 
-6. **VISUAL_SUMMARY.md**
+7. **VISUAL_SUMMARY.md**
    - Quick reference for all visuals
    - File structure and placement guide
    - Next steps for implementation
 
-7. **README.md**
+8. **README.md**
    - Updated with correct repository name
    - Enhanced feature descriptions
    - Complete usage instructions

@@ -154,8 +154,13 @@ export async function parseInvoiceWithAI(
   
   if (!content) throw new Error('AI failed to parse invoice');
   
-  const jsonContent = content.replace(/```json\n?|\n?```/g, '').trim();
+  // Robust JSON extraction: Find the first { and last } to extract the JSON block
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error('AI response did not contain a valid JSON object');
+  }
   
+  const jsonContent = jsonMatch[0].trim();
   const parsed = JSON.parse(jsonContent);
   return Array.isArray(parsed) ? parsed[0] : parsed;
 }

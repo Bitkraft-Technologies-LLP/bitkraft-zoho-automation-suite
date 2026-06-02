@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zoho Books Automation Suite</title>
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- APP CONTAINER -->
+  <div class="app-container">
+    
+    <!-- SIDEBAR NAVIGATION -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo-icon">🤖</div>
+        <div class="brand-text">
+          <h1>Bitkraft Zoho</h1>
+          <span class="subtext">Automation Suite</span>
+        </div>
+      </div>
+
+      <nav class="nav-menu">
+        <button class="nav-item active" data-tab="overview">
+          <span class="icon">📊</span> Overview
+        </button>
+        <button class="nav-item" data-tab="invoices">
+          <span class="icon">📄</span> Invoices Processor
+        </button>
+        <button class="nav-item" data-tab="currency">
+          <span class="icon">𒁂</span> Currency Exchange
+        </button>
+        <button class="nav-item" data-tab="payments">
+          <span class="icon">🏦</span> Bank Payments
+        </button>
+        <button class="nav-item" data-tab="config">
+          <span class="icon">⚙️</span> Configuration
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="status-indicator">
+          <div class="pulse-dot green" id="global-status-dot"></div>
+          <span id="global-status-text">Connecting...</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT WINDOW -->
+    <main class="main-content">
+      
+      <!-- HEADER -->
+      <header class="main-header">
+        <div class="header-title">
+          <h2 id="current-tab-title">Overview</h2>
+          <p id="current-tab-desc" class="desc-text">System integrations and real-time status details.</p>
+        </div>
+        
+        <div class="system-badges">
+          <div class="header-badge" id="zoho-header-badge">
+            <span class="badge-dot red"></span>
+            Zoho API: Checking...
+          </div>
+          <div class="header-badge" id="gemini-header-badge">
+            <span class="badge-dot red"></span>
+            Gemini AI: Checking...
+          </div>
+        </div>
+      </header>
+
+      <!-- CONTENT PANELS -->
+      <div class="panels-container">
+        
+        <!-- 1. OVERVIEW TAB -->
+        <section class="tab-panel active" id="panel-overview">
+          <div class="grid-layout cols-3">
+            <!-- Zoho Health Card -->
+            <div class="card glass shadow scale-hover">
+              <div class="card-header">
+                <h3>Zoho Books Integration</h3>
+                <span class="header-icon">🏦</span>
+              </div>
+              <div class="card-body">
+                <div class="status-row">
+                  <span class="label">Status:</span>
+                  <span class="val-badge badge-red" id="ov-zoho-status">Disconnected</span>
+                </div>
+                <div class="status-row">
+                  <span class="label">Organization:</span>
+                  <span class="val" id="ov-zoho-org">N/A</span>
+                </div>
+                <div class="status-row">
+                  <span class="label">GSTIN:</span>
+                  <span class="val" id="ov-zoho-gst">N/A</span>
+                </div>
+                <div class="status-row">
+                  <span class="label">State:</span>
+                  <span class="val" id="ov-zoho-state">N/A</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Gemini Health Card -->
+            <div class="card glass shadow scale-hover">
+              <div class="card-header">
+                <h3>Google Gemini AI</h3>
+                <span class="header-icon">🤖</span>
+              </div>
+              <div class="card-body">
+                <div class="status-row">
+                  <span class="label">API Key:</span>
+                  <span class="val-badge badge-red" id="ov-gemini-status">Not Found</span>
+                </div>
+                <div class="status-row">
+                  <span class="label">Active Model:</span>
+                  <span class="val code-font" id="ov-gemini-model">N/A</span>
+                </div>
+                <div class="status-row">
+                  <span class="label">Mime Support:</span>
+                  <span class="val">PDF Multimodal</span>
+                </div>
+                <div class="status-row">
+                  <span class="label">State Mappings:</span>
+                  <span class="val text-green">Active (TDS/GST)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Suite Directories -->
+            <div class="card glass shadow scale-hover">
+              <div class="card-header">
+                <h3>Workspace Directories</h3>
+                <span class="header-icon">📂</span>
+              </div>
+              <div class="card-body path-list">
+                <div class="path-row">
+                  <span class="label">Invoices Input:</span>
+                  <span class="val code-font truncate" id="ov-path-invoices" title="">Loading...</span>
+                </div>
+                <div class="path-row">
+                  <span class="label">Invoices Archive:</span>
+                  <span class="val code-font truncate" id="ov-path-archive" title="">Loading...</span>
+                </div>
+                <div class="path-row">
+                  <span class="label">Payment Summaries:</span>
+                  <span class="val code-font truncate" id="ov-path-summaries" title="">Loading...</span>
+                </div>
+                <div class="path-row">
+                  <span class="label">Bank XLS Uploads:</span>
+                  <span class="val code-font truncate" id="ov-path-bank" title="">Loading...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pending Files overview table -->
+          <div class="card glass shadow mt-2">
+            <div class="card-header">
+              <h3>Next Action Queue</h3>
+              <button class="btn btn-secondary btn-sm" id="ov-refresh-btn">🔄 Refresh Queue</button>
+            </div>
+            <div class="card-body">
+              <div class="table-container">
+                <table class="data-table" id="ov-queue-table">
+                  <thead>
+                    <tr>
+                      <th>Filename</th>
+                      <th>Size</th>
+                      <th>Detected On</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td colspan="4" class="text-muted text-center">Scanning directory...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. INVOICES PROCESSOR TAB -->
+        <section class="tab-panel" id="panel-invoices">
+          <!-- Split view for general files list OR full review screen -->
+          <div id="invoice-standard-view">
+            <!-- Drag and Drop Dropzone -->
+            <div class="dropzone-container mb-2">
+              <div class="dropzone" id="pdf-dropzone">
+                <div class="dropzone-content">
+                  <span class="upload-icon">📂</span>
+                  <h3>Drag & Drop PDF Invoices Here</h3>
+                  <p>or click to browse files from your computer</p>
+                  <span class="file-limits">PDF invoices only • Configurable local folders active</span>
+                  <input type="file" id="file-input" multiple accept=".pdf" style="display: none;">
+                </div>
+              </div>
+              <div class="upload-progress-container" id="upload-progress-container" style="display: none;">
+                <div class="progress-info">
+                  <span id="upload-status-text">Uploading files...</span>
+                  <span id="upload-percent">0%</span>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-fill" id="upload-progress-fill" style="width: 0%"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Invoices Lists (Pending and Archived) -->
+            <div class="grid-layout cols-2">
+              <!-- Pending Column -->
+              <div class="card glass shadow flex-col-container">
+                <div class="card-header border-bottom">
+                  <h3 class="amber-text">⏳ Pending Invoices (<span id="pending-count">0</span>)</h3>
+                  <span class="badge badge-amber">Awaiting AI Parse</span>
+                </div>
+                <div class="card-body flex-list" id="pending-invoices-list">
+                  <div class="text-center text-muted p-2">Scanning invoices directory...</div>
+                </div>
+              </div>
+
+              <!-- Archived Column -->
+              <div class="card glass shadow flex-col-container">
+                <div class="card-header border-bottom">
+                  <h3 class="emerald-text">✅ Processed Invoices Archive (<span id="archived-count">0</span>)</h3>
+                  <span class="badge badge-emerald">Synced in Zoho Books</span>
+                </div>
+                <div class="card-body flex-list" id="archived-invoices-list">
+                  <div class="text-center text-muted p-2">Scanning archive directory...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- DUAL REVIEW INTERFACE (HIDDEN BY DEFAULT) -->
+          <div id="invoice-review-view" style="display: none;">
+            <div class="review-header-bar mb-1">
+              <button class="btn btn-secondary" id="review-back-btn">⬅️ Back to Queue</button>
+              <div class="review-meta">
+                <h3>Reviewing: <span id="review-filename-title">invoice.pdf</span></h3>
+                <span class="ai-confidence">🔮 AI-Extracted Model Verified</span>
+              </div>
+              <div class="action-status" id="review-action-status"></div>
+            </div>
+
+            <div class="split-view">
+              <!-- Left Panel: PDF Viewer -->
+              <div class="split-left card glass">
+                <div class="iframe-container">
+                  <iframe id="review-pdf-iframe" src="" frameborder="0"></iframe>
+                </div>
+              </div>
+
+              <!-- Right Panel: Extracted Fields Editor Form -->
+              <div class="split-right card glass">
+                <!-- Status warnings (e.g. Vendor not found Alert) -->
+                <div class="alert-box" id="vendor-status-alert">
+                  <div class="alert-content">
+                    <h4 id="alert-title">Checking database...</h4>
+                    <p id="alert-desc">Verifying vendor records in Zoho Books.</p>
+                  </div>
+                  <div class="alert-actions" id="alert-actions-div">
+                    <!-- Dynamic Buttons -->
+                  </div>
+                </div>
+
+                <!-- Form Fields -->
+                <form id="invoice-review-form" class="review-form">
+                  <div class="form-section">
+                    <h4>Vendor Information</h4>
+                    <div class="form-grid cols-2">
+                      <div class="form-group">
+                        <label for="f-vendor-name">Vendor Name <span class="required">*</span></label>
+                        <input type="text" id="f-vendor-name" required>
+                      </div>
+                      <div class="form-group">
+                        <label for="f-vendor-gst">Vendor GSTIN</label>
+                        <input type="text" id="f-vendor-gst" placeholder="e.g. 27AAAAA0000A1Z">
+                      </div>
+                      <div class="form-group">
+                        <label for="f-vendor-pan">Vendor PAN</label>
+                        <input type="text" id="f-vendor-pan">
+                      </div>
+                      <div class="form-group">
+                        <label for="f-vendor-email">Email Address</label>
+                        <input type="email" id="f-vendor-email">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="form-section">
+                    <h4>Bill Settings & Identification</h4>
+                    <div class="form-grid cols-3">
+                      <div class="form-group">
+                        <label for="f-bill-number">Bill/Invoice No. <span class="required">*</span></label>
+                        <input type="text" id="f-bill-number" required>
+                      </div>
+                      <div class="form-group">
+                        <label for="f-bill-date">Bill Date <span class="required">*</span></label>
+                        <input type="date" id="f-bill-date" required>
+                      </div>
+                      <div class="form-group">
+                        <label for="f-bill-due-date">Due Date <span class="required">*</span></label>
+                        <input type="date" id="f-bill-due-date" required>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="form-section">
+                    <h4>Line Items Mapping</h4>
+                    <div class="line-items-wrapper">
+                      <table class="line-items-table" id="review-items-table">
+                        <thead>
+                          <tr>
+                            <th width="35%">Item & Description</th>
+                            <th width="12%">Rate (₹)</th>
+                            <th width="10%">Qty</th>
+                            <th width="23%">Expense Account</th>
+                            <th width="20%">Tax Rate</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <!-- Dynamic rows -->
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <!-- Submit Panel -->
+                  <div class="review-submit-bar mt-2">
+                    <div class="total-summary">
+                      <span class="total-label">Subtotal: <span id="bill-subtotal-val">₹0.00</span></span>
+                      <span class="total-label tds-deduction" id="bill-tds-container" style="display: none;">TDS: <span id="bill-tds-val">-₹0.00</span></span>
+                      <span class="total-final">Total Balance: <span id="bill-total-val">₹0.00</span></span>
+                    </div>
+                    
+                    <input type="hidden" id="f-vendor-id" value="">
+                    
+                    <button type="submit" class="btn btn-primary" id="btn-push-zoho" disabled>
+                      🚀 Push Bill to Zoho Books
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. CURRENCY EXCHANGE TAB -->
+        <section class="tab-panel" id="panel-currency">
+          <div class="grid-layout cols-3 mb-2">
+            <!-- Execution Control Card -->
+            <div class="card glass shadow col-span-2">
+              <div class="card-header">
+                <h3>ICEGATE Circular Crawler</h3>
+                <span class="header-icon">𒁂</span>
+              </div>
+              <div class="card-body">
+                <p class="desc-text mb-2">
+                  This crawler scrapes official exchange rates from the Indian Customs Electronic Gateway (ICEGATE / CBIC). 
+                  It parses PDF circulars, matches target currencies (`USD, AUD, EUR, GBP`), and updates them directly in Zoho Books.
+                </p>
+
+                <div class="run-control-form">
+                  <div class="form-group inline">
+                    <label for="currency-target-date">Fetch Rates For Date (Optional):</label>
+                    <input type="date" id="currency-target-date" placeholder="Leave empty for latest rates">
+                  </div>
+                  
+                  <div class="button-actions mt-1">
+                    <button class="btn btn-primary" id="btn-run-currency">🚀 Run CBIC Rates Crawler</button>
+                    <button class="btn btn-secondary" id="btn-refresh-rates">🔄 View Active Circular Rates</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Current Rates Card -->
+            <div class="card glass shadow">
+              <div class="card-header border-bottom">
+                <h3>Fetched Rates Summary</h3>
+                <span class="header-icon">💱</span>
+              </div>
+              <div class="card-body" id="currency-rates-summary-card">
+                <div class="text-center text-muted p-2">Click Refresh Rates or Run the Scraper to load.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Real-time Terminal Log Console -->
+          <div class="card glass shadow terminal-console-card">
+            <div class="card-header console-header">
+              <div class="console-controls">
+                <span class="dot red-dot"></span>
+                <span class="dot yellow-dot"></span>
+                <span class="dot green-dot"></span>
+                <span class="title code-font ml-1">Terminal: python3 run_automation.py</span>
+              </div>
+              <div class="console-actions">
+                <button class="btn btn-console-clear btn-sm" id="btn-clear-console">Clear Console</button>
+              </div>
+            </div>
+            <div class="console-output code-font" id="currency-terminal-output">
+              [System Alert] Awaiting execution trigger... Click "Run CBIC Rates Crawler" above to begin.
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. BANK PAYMENTS TAB -->
+        <section class="tab-panel" id="panel-payments">
+          <div class="grid-layout cols-3 mb-2">
+            <!-- Run trigger card -->
+            <div class="card glass shadow col-span-2">
+              <div class="card-header">
+                <h3>Bank Upload & Payment Summaries</h3>
+                <span class="header-icon">🏦</span>
+              </div>
+              <div class="card-body">
+                <p class="desc-text mb-2">
+                  Fetches all outstanding draft, unpaid, and partially paid bills in your Zoho Books dashboard. 
+                  It resolves vendors' bank accounts (extracted and stored in contact profiles) and calculates net payable amounts net of TDS deductions.
+                </p>
+                
+                <div class="alert-box alert-success mb-2">
+                  <div class="alert-content">
+                    <h4>Debit Account Preset</h4>
+                    <p>Debit account is set to Kotak account <strong>5253078611</strong>. Transaction codes automatically split into NEFT/IFT based on vendor routing numbers.</p>
+                  </div>
+                </div>
+
+                <div class="run-control-form">
+                  <button class="btn btn-primary" id="btn-run-payments">🚀 Generate Excel & CSV Bank Payment Files</button>
+                  <button class="btn btn-secondary ml-1" id="btn-refresh-payments-list">🔄 Sync Files list</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Configured directory paths info -->
+            <div class="card glass shadow">
+              <div class="card-header border-bottom">
+                <h3>Paths Configuration</h3>
+                <span class="header-icon">⚙️</span>
+              </div>
+              <div class="card-body">
+                <div class="status-row flex-col">
+                  <span class="label">CSV Summary Directory:</span>
+                  <span class="val code-font truncate" id="pm-path-summary">Loading...</span>
+                </div>
+                <div class="status-row flex-col mt-1">
+                  <span class="label">XLSX Bank Upload Directory:</span>
+                  <span class="val code-font truncate" id="pm-path-xlsx">Loading...</span>
+                </div>
+                <div class="status-row flex-col mt-1">
+                  <span class="label">Credit Advice Memo Text:</span>
+                  <span class="val code-font" id="pm-advice-format">Loading...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Real-time Payments Generation Console -->
+          <div class="card glass shadow terminal-console-card mb-2" id="payments-console-card" style="display: none;">
+            <div class="card-header console-header">
+              <div class="console-controls">
+                <span class="dot red-dot"></span>
+                <span class="dot yellow-dot"></span>
+                <span class="dot green-dot"></span>
+                <span class="title code-font ml-1">Terminal: npx ts-node generate-bank-payment.ts</span>
+              </div>
+            </div>
+            <div class="console-output code-font" id="payments-terminal-output">
+              Starting payment spreadsheet processing...
+            </div>
+          </div>
+
+          <!-- List of generated payment summaries and bank uploads -->
+          <div class="grid-layout cols-2">
+            <!-- Bank Upload Sheets Card (XLSX) -->
+            <div class="card glass shadow">
+              <div class="card-header border-bottom">
+                <h3>Bank Excel Spreadsheet Uploads (.xlsx)</h3>
+                <span class="badge badge-emerald">Ready for Upload</span>
+              </div>
+              <div class="card-body p-0">
+                <ul class="file-download-list" id="xlsx-downloads-list">
+                  <li class="empty-list">No bank files generated yet. Click generate above.</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- CSV Payment Summaries Card -->
+            <div class="card glass shadow">
+              <div class="card-header border-bottom">
+                <h3>Payment Summary Sheets (.csv)</h3>
+                <span class="badge badge-indigo">Internal Auditing</span>
+              </div>
+              <div class="card-body p-0">
+                <ul class="file-download-list" id="csv-downloads-list">
+                  <li class="empty-list">No summaries generated yet. Click generate above.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 5. CONFIGURATION TAB -->
+        <section class="tab-panel" id="panel-config">
+          <div class="card glass shadow max-w-lg">
+            <div class="card-header border-bottom">
+              <h3>System Settings Manager</h3>
+              <span class="header-icon">⚙️</span>
+            </div>
+            <div class="card-body">
+              <p class="desc-text mb-2">
+                Manage the workspace directories and automation defaults. Saving updates will instantly modify the local `.env` configuration file.
+              </p>
+
+              <form id="config-settings-form" class="review-form">
+                <div class="form-section-title">Workflow Target Folders</div>
+                <div class="form-group">
+                  <label for="c-invoices-dir">Invoices Pending input Directory</label>
+                  <input type="text" id="c-invoices-dir" required placeholder="./data/invoices">
+                  <span class="form-tip">Directory to scan for raw PDF invoice files. Can be absolute or relative path.</span>
+                </div>
+                <div class="form-group mt-1">
+                  <label for="c-archive-dir">Processed Invoices Archive Directory</label>
+                  <input type="text" id="c-archive-dir" required placeholder="./data/invoices/archive">
+                  <span class="form-tip">Where successfully uploaded invoices are archived. Can be absolute or relative path.</span>
+                </div>
+                <div class="form-group mt-1">
+                  <label for="c-payments-summary-dir">Payment CSV Summaries Directory</label>
+                  <input type="text" id="c-payments-summary-dir" required placeholder="./data/payments_summary">
+                  <span class="form-tip">Where CSV summaries of unpaid bills are output. Can be absolute or relative.</span>
+                </div>
+                <div class="form-group mt-1">
+                  <label for="c-bank-upload-dir">Bank Excel Spreadsheet Uploads Directory</label>
+                  <input type="text" id="c-bank-upload-dir" required placeholder="./data/bank_payment_upload">
+                  <span class="form-tip">Where XLSX sheets for bulk bank payment upload are output. Can be absolute or relative.</span>
+                </div>
+
+                <div class="form-section-title mt-2">Organization & Currency Rules</div>
+                <div class="form-grid cols-2">
+                  <div class="form-group">
+                    <label for="c-org-name">Organization Name</label>
+                    <input type="text" id="c-org-name" placeholder="Your Organization Name">
+                  </div>
+                  <div class="form-group">
+                    <label for="c-org-gst">Organization GSTIN</label>
+                    <input type="text" id="c-org-gst" placeholder="Your GST Number">
+                  </div>
+                  <div class="form-group">
+                    <label for="c-org-state">Organization State (for Tax matches)</label>
+                    <input type="text" id="c-org-state" placeholder="State Name (e.g. Maharashtra)">
+                  </div>
+                  <div class="form-group">
+                    <label for="c-currencies">Target Currencies (Comma-separated)</label>
+                    <input type="text" id="c-currencies" placeholder="e.g. USD,AUD,EUR">
+                  </div>
+                </div>
+
+                <div class="form-section-title mt-2">Advanced Engine Tuning</div>
+                <div class="form-grid cols-2">
+                  <div class="form-group">
+                    <label for="c-gemini-model">Gemini Model</label>
+                    <input type="text" id="c-gemini-model" required placeholder="gemini-1.5-flash">
+                  </div>
+                  <div class="form-group">
+                    <label for="c-advice-format">Bank Advice Text Format</label>
+                    <input type="text" id="c-advice-format" required placeholder="Inv pay {invoice_number}">
+                  </div>
+                </div>
+
+                <div class="config-submit-bar mt-2 text-right">
+                  <button type="submit" class="btn btn-primary" id="btn-save-config">💾 Save Configuration Settings</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+  </div>
+
+  <!-- EXTRACTION LOADING OVERLAY -->
+  <div class="modal-overlay" id="extraction-loader-overlay">
+    <div class="card glass text-center p-2" style="max-width: 400px; display: flex; flex-direction: column; align-items: center; gap: 20px; border-color: var(--accent-primary); border-width: 1px;">
+      <div class="upload-icon" style="font-size: 50px; margin-bottom: 0;">🔮</div>
+      <h3 style="font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--text-white);" id="extraction-loader-title">Gemini AI Parser Active</h3>
+      <p class="desc-text" id="extraction-loader-step" style="font-size: 13px; line-height: 1.5; color: var(--text-muted); min-height: 40px;">Initializing multimodal invoice parsing...</p>
+      
+      <!-- Pulsing dots loader -->
+      <div style="display: flex; gap: 8px; justify-content: center; margin-top: 10px;">
+        <span class="pulse-dot green" style="animation-delay: 0s; width: 10px; height: 10px;"></span>
+        <span class="pulse-dot green" style="animation-delay: 0.3s; width: 10px; height: 10px;"></span>
+        <span class="pulse-dot green" style="animation-delay: 0.6s; width: 10px; height: 10px;"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- VENDOR CREATION MODAL OVERLAY -->
+  <div class="modal-overlay" id="create-vendor-modal">
+    <div class="modal-card glass shadow">
+      <div class="modal-header border-bottom">
+        <h3>Create Zoho Books Vendor Record</h3>
+        <button class="btn-modal-close" id="btn-close-vendor-modal">✕</button>
+      </div>
+      <form id="modal-vendor-form">
+        <div class="modal-body">
+          <p class="desc-text mb-2">AI extracted details found in invoice. Review and adjust information before creating in Zoho Books.</p>
+          
+          <div class="form-grid cols-2">
+            <div class="form-group">
+              <label for="v-name">Vendor/Company Name <span class="required">*</span></label>
+              <input type="text" id="v-name" required>
+            </div>
+            <div class="form-group">
+              <label for="v-gst">GST Number</label>
+              <input type="text" id="v-gst">
+            </div>
+            <div class="form-group">
+              <label for="v-pan">PAN Number</label>
+              <input type="text" id="v-pan">
+            </div>
+            <div class="form-group">
+              <label for="v-phone">Phone Number</label>
+              <input type="text" id="v-phone">
+            </div>
+            <div class="form-group">
+              <label for="v-email">Email Address</label>
+              <input type="email" id="v-email">
+            </div>
+            <div class="form-group">
+              <label for="v-address">Billing Street Address</label>
+              <input type="text" id="v-address">
+            </div>
+            <div class="form-group">
+              <label for="v-city">City</label>
+              <input type="text" id="v-city">
+            </div>
+            <div class="form-group">
+              <label for="v-state">State</label>
+              <input type="text" id="v-state">
+            </div>
+            <div class="form-group">
+              <label for="v-zip">ZIP / Postal Code</label>
+              <input type="text" id="v-zip">
+            </div>
+          </div>
+
+          <div class="form-section-title mt-1">AI Extracted Bank Account Details</div>
+          <div class="form-grid cols-3" id="v-bank-details-grid">
+            <div class="form-group">
+              <label for="v-bank-account">Account Number</label>
+              <input type="text" id="v-bank-account">
+            </div>
+            <div class="form-group">
+              <label for="v-bank-ifsc">IFSC Routing Code</label>
+              <input type="text" id="v-bank-ifsc">
+            </div>
+            <div class="form-group">
+              <label for="v-bank-name">Bank Name</label>
+              <input type="text" id="v-bank-name">
+            </div>
+          </div>
+          <p class="form-tip mt-1">💡 Bank details will be saved to the vendor's <strong>Notes</strong> field in Zoho Books for audit and record reference.</p>
+        </div>
+
+        <div class="modal-footer border-top text-right">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-vendor-modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-submit-vendor-modal">💾 Sync & Create Vendor</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>

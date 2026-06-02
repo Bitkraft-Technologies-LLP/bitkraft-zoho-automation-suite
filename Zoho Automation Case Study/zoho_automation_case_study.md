@@ -104,6 +104,12 @@ Using Google Gemini's multimodal AI capabilities and working with an AI coding a
 - **Solution**: Integrated with Zoho's TDS system, ensuring calculations matched vendor configurations
 - **AI's Role**: Implemented the API integration; I ensured regulatory compliance
 
+**Challenge 5: API Rate Limits & Resilience**
+
+- **Problem**: Batch processing large volumes caused Zoho and Gemini API rate limits/503s
+- **Solution**: Implemented in-memory configuration caching and exponential backoff retry logic to ensure 100% reliability during spikes
+- **AI's Role**: Developed the retry helper and caching structures
+
 ### The Impact
 
 **Time Saved**: 5-10 hours per week → **260-520 hours annually**  
@@ -283,6 +289,33 @@ This was the fastest project, proving that **AI can turn hours of work into minu
 
 ---
 
+## Case Study 4: Unified Web Control Center Dashboard
+
+### The Problem
+
+While our three automation solutions (Invoices, Exchange Rates, Payments) were highly efficient, running them strictly through the command line (CLI) posed distinct operational friction:
+1. **Blind Executions**: Running terminal commands meant zero progress visibility or visual prompts.
+2. **Cumbersome Unregistered Vendors**: If a vendor was missing in Zoho Books, the user had to manually inspect a CLI prompt and type data without any visual aid of the PDF.
+3. **Rigid Directory Config**: Modifying target file directories or settings meant manually editing the `.env` file in an IDE, which is highly error-prone.
+4. **Scattered Output Files**: Retrieving bulk payments XLSX files meant digging into the operating system folder directories.
+
+### The Gen AI Solution (Built in 2 Days)
+
+With AI assistance, I built a highly polished, responsive **Web Control Center Dashboard** running locally at `http://localhost:3000`. It wraps all of our custom TypeScript and Python scripts in a premium interactive interface.
+
+**Key Features Delivered:**
+- 🎨 **Premium Aesthetics**: Dark slate responsive Single Page Application featuring advanced **glassmorphic panels**, interactive cards, and smooth micro-animations.
+- 📄 **Split-Pane Invoice Verification**: Place PDF uploads in the browser via simple drag-and-drop, and review them side-by-side (scrollable PDF preview on the left, editable AI form on the right).
+- 💱 **SSE Streams Real-Time Console**: Streams execution stdout of our CBIC scraper in real time onto an embedded dark glowing terminal window.
+- 🏦 **One-Click Payments Downloader**: Scans unpaid bills, displays Kotak bank transfer advices, and serves bulk upload sheets directly for browser download.
+- ⚙️ **Visual Environment Manager**: Visually configure and rewrite `.env` directory settings instantly.
+
+### The Impact
+- **Friction Eliminated**: The dashboard makes the automation accessible, visible, and comfortable without typing terminal commands.
+- **Resilience & Token Decoupling**: Implemented parent-to-child OAuth token propagation where the Node.js server pre-fetches a Zoho token and passes it to the Python crawler via environmental variables, completely avoiding API rate-limiting blocks.
+
+---
+
 ## The Bigger Picture: A New Era of Empowerment
 
 ### What Changed
@@ -432,11 +465,12 @@ graph TB
 
 ### Technology Stack
 
-- **AI Models**: Google Gemini 2.0 Flash (multimodal)
-- **Backend**: TypeScript/Node.js, Python 3.x
-- **APIs**: Zoho Books REST API, ICEGATE web scraping
-- **Libraries**: pdf-parse, axios, xlsx, dotenv, BeautifulSoup
-- **Infrastructure**: Cron for scheduling, local file system for data storage
+- **AI Models**: Google Gemini Flash (`gemini-flash-latest`)
+- **Backend & APIs**: Express (Node.js/TypeScript), Python 3.x, Server-Sent Events (SSE) for real-time console streaming
+- **Frontend SPA**: Vanilla HTML5/CSS3 (Glassmorphism layout using custom HSL tokens, Outfit & Inter google fonts, native responsive grid)
+- **APIs**: Zoho Books REST API, ICEGATE web scraping, Gemini Multimodal API
+- **Libraries**: express, cors, multer, pdf-parse, axios, xlsx, dotenv, BeautifulSoup
+- **Infrastructure**: Local server hosting (`localhost:3000`), local filesystem persistence, configurable workspace paths
 - **Version Control**: Git, GitHub
 
 ### Repository
@@ -446,11 +480,12 @@ The complete source code is available as open source:
 
 ### Key Metrics
 
-- **Total Lines of Code**: ~2,500 lines
-- **Development Time**: 3.5 days
-- **Traditional Estimate**: 4-6 weeks
-- **Cost Savings**: ₹4-5.5 lakhs
-- **Annual Time Savings**: 374-676 hours
+- **Total Lines of Code**: ~4,500 lines (Suite + Dashboard)
+- **Total Development Time**: 5.5 days (3.5 days core + 2 days Control Center)
+- **Traditional Estimate**: 7-9 weeks (Traditional development of scripts + full UI control panel)
+- **Cost Savings**: ₹6-8 lakhs (developer salaries & overhead)
+- **Annual Time Savings**: 374-676 hours saved from automated workflows
+- **UI Visual Comfort**: 100% visibility over operations, zero command line interface dependency
 - **Error Reduction**: ~95%
 - **ROI**: Immediate and ongoing
 

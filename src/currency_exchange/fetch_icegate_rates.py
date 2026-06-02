@@ -1,4 +1,5 @@
 
+import os
 import json
 import requests
 import datetime
@@ -95,8 +96,14 @@ if __name__ == "__main__":
     try:
         data = get_latest_icegate_rates()
         print(json.dumps(data, indent=2))
-        with open("icegate_rates.json", "w") as f:
+        
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        target_path = os.path.join(script_dir, "icegate_rates.json")
+        
+        with open(target_path, "w") as f:
             json.dump(data, f, indent=2)
-            print("Saved to icegate_rates.json")
+            print(f"Saved to {target_path}")
     except Exception as e:
+        import sys
         print(f"Error: {e}")
+        sys.exit(1)

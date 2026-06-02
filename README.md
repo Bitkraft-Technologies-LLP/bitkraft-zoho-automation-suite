@@ -10,6 +10,7 @@ Explore our detailed journey of building this suite using Gen AI, including tech
 - [📄 AI-Powered Invoice Processing](./Zoho%20Automation%20Case%20Study/case_study_invoice_processing.md)
 - [💱 ICEGATE Currency Automation](./Zoho%20Automation%20Case%20Study/case_study_currency_automation.md)
 - [🏦 Bank Payment Generation](./Zoho%20Automation%20Case%20Study/case_study_payment_automation.md)
+- [🖥️ Visual Web Control Center Dashboard](./Zoho%20Automation%20Case%20Study/case_study_web_dashboard.md)
 - [🛠️ Visual Assets &amp; Architecture Guide](./Zoho%20Automation%20Case%20Study/visual_assets_guide.md)
 
 _See the [Case Study Package Guide](./Zoho%20Automation%20Case%20Study/case_study_package_guide.md) for a complete index of all documentation._
@@ -31,6 +32,8 @@ _See the [Case Study Package Guide](./Zoho%20Automation%20Case%20Study/case_stud
 - 📊 **State-Aware Tax Mapping**: Intelligently selects between GST and IGST based on transaction location
 - 📁 **Batch Processing**: Process multiple invoices at once from a directory
 - 🗄️ **Auto-Archival**: Automatically archives processed invoices to prevent reprocessing
+- ⚡ **Optimized Performance**: Internal caching for Zoho configuration (Accounts, Taxes, Vendors) to minimize API overhead and prevent rate-limiting
+- 🛡️ **Built-in Resilience**: Automated exponential backoff retry logic for AI extraction to handle transient service spikes gracefully
 
 ### 💱 Currency Exchange Rate Automation
 
@@ -47,6 +50,15 @@ _See the [Case Study Package Guide](./Zoho%20Automation%20Case%20Study/case_stud
 - 💼 **TDS-Aware Calculations**: Accurately calculates net payable amounts considering TDS deductions
 - ⚙️ **Configurable Paths**: All input/output directories are customizable via environment variables
 - 📊 **Payment Summaries**: Generates detailed payment summary reports in CSV format
+
+### 🖥️ Interactive Web Control Center Dashboard
+
+- 🎨 **Harmonious Premium UI**: Single Page Application designed around an elegant Dark HSL Slate aesthetic with glowing colors, custom animations, and glassmorphic card modules
+- 📄 **Split-Screen AI Reviewer**: Visual drag-and-drop zone with XHR upload progress bars, side-by-side split screen showing a scrollable PDF viewer on the left and a live-filled form editor on the right (linked to dynamic Zoho expense accounts & tax codes)
+- 💱 **Real-Time Terminal Console**: Server-Sent Events (SSE) log stream that pipes raw crawler logs straight into a beautiful terminal console window on the dashboard
+- 🏦 **One-Click Payments Hub**: Single-button trigger to scan all unpaid bills, compute Kotak advices, and download generated XLSX/CSV payment files instantly to your browser
+- ⚙️ **Visual Environment Configurator**: Configure directories, advice texts, target currencies, and Gemini parameters visually without touching raw text `.env` configurations
+- 🛡️ **Resilient Token Propagation**: Shares cached Zoho OAuth credentials between Node.js and Python processes, preventing Zoho rate-limiting blocks ("Access Denied") and ensuring clean, failsafe automation runs
 
 ## Prerequisites
 
@@ -91,7 +103,20 @@ npx ts-node setup-org.ts
 
 ## Usage
 
-### Process a Single Invoice
+### 🚀 Interactive Web Control Center (Recommended)
+
+To run the unified visual control center locally on your machine, simply execute:
+
+```bash
+npm run dashboard
+```
+
+The server compiles the TypeScript source, boots the API endpoints, and hosts the visual dashboard at:
+👉 **[http://localhost:3000](http://localhost:3000)**
+
+Navigate to it in your web browser to enjoy a beautiful interface covering drag-drop uploads, split-pane reviews, live-streaming scraper console logs, and visual configurations!
+
+### Process a Single Invoice (CLI)
 
 ```bash
 npx ts-node src/invoice_processing/index.ts path/to/invoice.pdf
@@ -172,7 +197,7 @@ All paths and formats are configurable via `.env`:
 | `BANK_PAYMENT_UPLOAD_DIR` | Bank upload XLSX location              | `./data/bank_payment_upload` |
 | `BANK_ADVICE_FORMAT`      | Credit/Debit advice text format        | `Inv pay {invoice_number}`   |
 | `TARGET_CURRENCIES`       | Currencies to update (comma-separated) | `USD,AUD,EUR,GBP`            |
-| `GEMINI_MODEL`            | Google Gemini model to use             | `gemini-2.5-flash`           |
+| `GEMINI_MODEL`            | Google Gemini model to use             | `gemini-flash-latest`        |
 
 ## How It Works
 

@@ -158,15 +158,31 @@ async function processInvoice(filePath: string, zoho: ZohoClient, orgGst: string
 
 
 
-    // Modify line items for unregistered vendors
+    // Fetch full vendor details to check GST treatment and TDS settings
+    console.log("Fetching detailed vendor profile...");
+    let fullVendor: any = vendor;
+    try {
+      fullVendor = await zoho.getVendor(vendor.contact_id || vendor.vendor_id || vendor.contact_id);
+    } catch (err) {
+      console.warn("⚠️  Failed to fetch detailed vendor profile. Using basic info.");
+    }
+
+    const gstTreatment = fullVendor?.gst_treatment || (billData.vendor_gst ? "business_gst" : "business_none");
+    const isTaxable = gstTreatment === "business_gst" || gstTreatment === "overseas";
+    const isComposition = gstTreatment === "business_registered_composition";
+
+    if (isComposition) {
+      console.log("ℹ️  Vendor is under GST Composition Scheme. Taxes will be removed from line items.");
+    } else if (!isTaxable) {
+      console.log(`ℹ️  Vendor GST Treatment is "${gstTreatment}". Taxes will be removed from line items.`);
+    }
+
+    // Modify line items based on GST treatment
     const processedLineItems = billData.line_items.map((item: any) => {
-      // Check if vendor has no GST number (unregistered)
-      if (!billData.vendor_gst) {
+      // If vendor is Composition or Unregistered, they cannot charge tax
+      if (isComposition || !isTaxable) {
         const { tax_id, tax_exemption_code, tax_exemption_id, ...itemWithoutTax } = item;
-        return {
-          ...itemWithoutTax
-          // No tax_id, no tax_exemption - completely tax-free line item
-        };
+        return itemWithoutTax;
       }
       return item;
     });
@@ -183,27 +199,35 @@ async function processInvoice(filePath: string, zoho: ZohoClient, orgGst: string
     };
 
     // TDS Deduction Logic
-    console.log("Checking for TDS settings in vendor profile...");
-    try {
-      const fullVendor = await zoho.getVendor(vendor.contact_id || vendor.vendor_id);
-      if (fullVendor?.tds_tax_id && fullVendor?.tds_tax_percentage) {
-        console.log(`Found TDS: ${fullVendor.tds_tax_name} (${fullVendor.tds_tax_percentage}%)`);
-        const subTotal = billData.line_items.reduce((sum: number, item: any) => sum + (Number(item.rate) * (Number(item.quantity) || 1)), 0);
-        const tdsAmount = (subTotal * Number(fullVendor.tds_tax_percentage)) / 100;
-        
-        finalBillData.tds_tax_id = fullVendor.tds_tax_id;
-        finalBillData.tds_amount = tdsAmount;
-        console.log(`Applied TDS Amount: ₹${tdsAmount}`);
-      } else {
-        console.warn(`\n⚠️  TDS settings not found for vendor "${vendor.contact_name || vendor.vendor_name}".`);
-        console.warn("Please verify and apply TDS manually in Zoho Books if required.\n");
-      }
-    } catch (tdsError) {
-      console.warn("⚠️  Failed to fetch detailed vendor profile for TDS. Proceeding without TDS.");
+    if (fullVendor?.tds_tax_id && fullVendor?.tds_tax_percentage) {
+      console.log(`Found TDS: ${fullVendor.tds_tax_name} (${fullVendor.tds_tax_percentage}%)`);
+      const subTotal = billData.line_items.reduce((sum: number, item: any) => sum + (Number(item.rate) * (Number(item.quantity) || 1)), 0);
+      const tdsAmount = (subTotal * Number(fullVendor.tds_tax_percentage)) / 100;
+      
+      finalBillData.tds_tax_id = fullVendor.tds_tax_id;
+      finalBillData.tds_amount = tdsAmount;
+      console.log(`Applied TDS Amount: ₹${tdsAmount}`);
+    } else if (fullVendor) {
+      console.warn(`\n⚠️  TDS settings not found for vendor "${fullVendor.vendor_name || fullVendor.contact_name}".`);
+      console.warn("Please verify and apply TDS manually in Zoho Books if required.\n");
     }
 
     console.log("Creating DRAFT bill in Zoho Books...");
-    const result = await zoho.createBill(finalBillData);
+    let result: any;
+    try {
+      result = await zoho.createBill(finalBillData);
+    } catch (err: any) {
+      if (err.response?.data?.code === 1016) {
+        console.warn(`\n⚠️  Zoho Error 1016: The applied TDS tax is expired or invalid for this date.`);
+        console.warn("Retrying bill creation WITHOUT TDS...");
+        const { tds_tax_id, tds_amount, ...dataWithoutTDS } = finalBillData;
+        result = await zoho.createBill(dataWithoutTDS);
+        console.warn("✅ Bill created successfully (but TDS must be applied manually).");
+      } else {
+        throw err;
+      }
+    }
+    
     const billId = result.bill.bill_id;
     console.log("Bill created successfully! Bill ID:", billId);
 
@@ -242,7 +266,7 @@ async function main() {
   const dryRun = process.argv.includes("--dry-run");
   
   const invoicesDir = process.env.INVOICES_DIR || "./invoices";
-  let archiveDir = process.env.INVOICES_ARCHIVE_DIR || "./invoices/archive";
+  let archiveDir: string;
 
   try {
     let targetDir = invoicesDir;
@@ -255,18 +279,23 @@ async function main() {
         if (stats.isDirectory()) {
           targetDir = filePath;
           singleFile = undefined;
-          // When a path is provided, archive inside that path
-          archiveDir = path.join(filePath, 'archive');
           console.log(`Mode: Batch processing (Directory: ${targetDir})`);
         } else {
-          // When a single file path is provided, archive in an archive folder next to that file
-          archiveDir = path.join(path.dirname(filePath), 'archive');
+          targetDir = path.dirname(filePath);
           console.log("Mode: Single file processing");
         }
       } else {
         console.error(`Error: Path ${filePath} does not exist.`);
         process.exit(1);
       }
+    }
+
+    // Always make archive relative to the target directory
+    // Priority: .env value (if absolute) OR targetDir/archive
+    if (process.env.INVOICES_ARCHIVE_DIR && path.isAbsolute(process.env.INVOICES_ARCHIVE_DIR)) {
+      archiveDir = process.env.INVOICES_ARCHIVE_DIR;
+    } else {
+      archiveDir = path.join(targetDir, 'archive');
     }
 
     // Ensure archive directory exists

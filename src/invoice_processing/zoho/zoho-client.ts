@@ -7,6 +7,7 @@ dotenv.config();
 
 export class ZohoClient {
   private accessToken: string | null = null;
+  private tokenRequestPromise: Promise<string> | null = null;
   private clientId: string;
   private clientSecret: string;
   private refreshToken: string;
@@ -43,8 +44,12 @@ export class ZohoClient {
     }
   }
 
-  private async getAccessToken(): Promise<string> {
+  public async getAccessToken(): Promise<string> {
     if (this.accessToken) return this.accessToken;
+
+    if (this.tokenRequestPromise) {
+      return this.tokenRequestPromise;
+    }
 
     const url = `https://accounts.zoho.${this.region}/oauth/v2/token`;
     const params = new URLSearchParams({
@@ -54,28 +59,34 @@ export class ZohoClient {
       grant_type: "refresh_token",
     });
 
-    try {
-      const response = await axios.post(url, params.toString(), {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      });
-      this.accessToken = response.data.access_token;
+    this.tokenRequestPromise = (async () => {
+      try {
+        const response = await axios.post(url, params.toString(), {
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        });
+        this.accessToken = response.data.access_token;
 
-      // Token expires in 1 hour usually, we'll just clear it after 55 mins
-      setTimeout(
-        () => {
-          this.accessToken = null;
-        },
-        55 * 60 * 1000,
-      );
+        // Token expires in 1 hour usually, we'll just clear it after 55 mins
+        setTimeout(
+          () => {
+            this.accessToken = null;
+          },
+          55 * 60 * 1000,
+        );
 
-      return this.accessToken!;
-    } catch (error: any) {
-      console.error(
-        "Failed to refresh Zoho token:",
-        error.response?.data || error.message,
-      );
-      throw new Error("Zoho Authentication Failed");
-    }
+        return this.accessToken!;
+      } catch (error: any) {
+        console.error(
+          "Failed to refresh Zoho token:",
+          error.response?.data || error.message,
+        );
+        throw new Error("Zoho Authentication Failed");
+      } finally {
+        this.tokenRequestPromise = null;
+      }
+    })();
+
+    return this.tokenRequestPromise;
   }
 
   async getOrganization() {

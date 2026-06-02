@@ -15,13 +15,18 @@ ZOHO_ORGANIZATION_ID = os.getenv("ZOHO_ORGANIZATION_ID")
 
 target_currencies_env = os.getenv("TARGET_CURRENCIES", "USD,EUR,GBP")
 TARGET_CURRENCIES = [c.strip() for c in target_currencies_env.split(",")]
-# Zoho domain might vary (com, in, eu). Assuming .com based on typical usage, but should be configurable.
-# Defaulting to .com for auth, but the API endpoint might change.
-ZOHO_ACCOUNTS_URL = "https://accounts.zoho.com" # or .in
-ZOHO_BOOKS_URL = "https://www.zohoapis.com/books/v3"
+ZOHO_REGION = os.getenv("ZOHO_REGION", "com")
+ZOHO_ACCOUNTS_URL = f"https://accounts.zoho.{ZOHO_REGION}"
+ZOHO_BOOKS_URL = f"https://www.zohoapis.{ZOHO_REGION}/books/v3"
 
 
 def get_access_token():
+    # If Node.js passed a pre-fetched token, use it directly
+    token = os.getenv("ZOHO_ACCESS_TOKEN")
+    if token:
+        print("Using pre-fetched access token from parent process.")
+        return token
+    # Otherwise fall back to normal OAuth refresh
     url = f"{ZOHO_ACCOUNTS_URL}/oauth/v2/token"
     params = {
         "refresh_token": ZOHO_REFRESH_TOKEN,
@@ -116,11 +121,14 @@ def update_exchange_rate(access_token, currency_id, rate, date_str):
         return False
 
 def main():
-    if not os.path.exists("icegate_rates.json"):
-        print("icegate_rates.json not found. Run fetch script first.")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    target_path = os.path.join(script_dir, "icegate_rates.json")
+
+    if not os.path.exists(target_path):
+        print(f"{target_path} not found. Run fetch script first.")
         return
 
-    with open("icegate_rates.json", "r") as f:
+    with open(target_path, "r") as f:
         data = json.load(f)
 
     if data.get("error"):
@@ -203,7 +211,9 @@ def main():
                 print(f"Skipping {code}: Not found in Zoho.")
                 
     except Exception as e:
+        import sys
         print(f"Critical Error: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

@@ -163,6 +163,30 @@ Here's what made the difference:
 **Why my experience mattered**: I knew TDS was critical and couldn't be an afterthought. I designed it into the core flow from day one.
 
 **AI's contribution**: Integrated with Zoho's TDS API endpoints seamlessly.
++
++### Challenge 6: API Rate Limits & Transient AI Failures
++
++**Problem**: Batch processing 20+ invoices caused Zoho's API to rate-limit the script (429 errors). Additionally, high demand on Google's Gemini API occasionally caused temporary "Service Unavailable" (503) errors.
++
++**My Solution**: 
++- **Zoho Caching**: Implemented in-memory caching for Accounts, Taxes, and Vendors. The script now fetches these once per batch instead of once per invoice.
++- **Exponential Backoff**: Added a robust retry mechanism for the AI extraction phase. If the API is busy, the script waits and retries with increasing delays.
++
++**Why my experience mattered**: I knew that production-grade automation must be resilient. A script that crashes halfway through a batch due to a transient network blip is a liability, not an asset.
++
++**AI's contribution**: Wrote the `withRetry` helper and implemented the internal caching map in the Zoho client.
++
++### Challenge 7: GST Composition Scheme Restrictions
++
++**Problem**: Vendors under the "GST Composition Scheme" are prohibited by law from charging GST. If a bill is submitted to Zoho with a `tax_id` for such a vendor, the API returns a strict error (Code 71516).
++
++**My Solution**: 
++- Added automated detection of `gst_treatment` from the Zoho vendor profile.
++- Implemented conditional line-item processing: if the vendor is marked as "Composition," "Unregistered," or "Overseas," all `tax_id` fields are stripped before submission.
++
++**Why my experience mattered**: I understood the accounting reason behind the API error. Instead of just "fixing the bug," I implemented a business-rule-aware filter that handles multiple types of non-taxable vendors.
++
++**AI's contribution**: Refactored the line-item mapping logic to be stateful based on the vendor's GST treatment.
 
 ---
 
@@ -412,7 +436,7 @@ Projects that were "someday" are now "this week."
 
 **Technology Stack:**
 
-- **AI**: Google Gemini 2.0 Flash (multimodal)
+- **AI**: Google Gemini Flash (using `gemini-flash-latest`)
 - **Language**: TypeScript/Node.js
 - **PDF Parsing**: pdf-parse library
 - **API**: Zoho Books REST API

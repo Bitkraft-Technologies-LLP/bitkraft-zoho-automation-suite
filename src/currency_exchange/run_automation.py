@@ -38,9 +38,17 @@ def main():
         
     # Step 2: Update
     print(f"--- Running {update_script} ---")
-    result = subprocess.run([sys.executable, update_script], capture_output=True, text=True)
+    
+    # Inherit env to ensure ZOHO_ACCESS_TOKEN is passed down
+    result = subprocess.run([sys.executable, update_script], env=os.environ, capture_output=True, text=True)
     print(result.stdout)
-
+    if result.stderr:
+        print("Errors:")
+        print(result.stderr)
+        
+    if result.returncode != 0:
+        print(f"Aborting: Zoho update failed with code {result.returncode}.")
+        sys.exit(result.returncode)
         
     print("Automation completed successfully.")
 
