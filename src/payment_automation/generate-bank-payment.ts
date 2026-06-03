@@ -18,8 +18,10 @@ async function generateBankPayment() {
     const xlsxFileName = `bank_payment_${suffix}.xlsx`;
     
     // Use configurable paths from .env
-    const paymentsSummaryDir = path.resolve(process.cwd(), process.env.PAYMENTS_SUMMARY_DIR || './payments_summary');
-    const bankPaymentUploadDir = path.resolve(process.cwd(), process.env.BANK_PAYMENT_UPLOAD_DIR || './bank_payment_upload');
+    const rawSummaryDir = process.env.PAYMENTS_SUMMARY_DIR ? process.env.PAYMENTS_SUMMARY_DIR.replace(/^["']|["']$/g, '').trim() : '';
+    const rawUploadDir = process.env.BANK_PAYMENT_UPLOAD_DIR ? process.env.BANK_PAYMENT_UPLOAD_DIR.replace(/^["']|["']$/g, '').trim() : '';
+    const paymentsSummaryDir = path.resolve(process.cwd(), rawSummaryDir || './payments_summary');
+    const bankPaymentUploadDir = path.resolve(process.cwd(), rawUploadDir || './bank_payment_upload');
     
     // Ensure directories exist
     if (!fs.existsSync(paymentsSummaryDir)) {

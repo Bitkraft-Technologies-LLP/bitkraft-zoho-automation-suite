@@ -20,17 +20,24 @@ app.use(express.json());
 // Set up server static files to serve the frontend SPA
 app.use(express.static(path.join(__dirname, "public")));
 
+function cleanEnvPath(envVal: string | undefined, defaultVal: string): string {
+  if (!envVal) return path.resolve(process.cwd(), defaultVal);
+  const cleaned = envVal.replace(/^["']|["']$/g, "").trim();
+  return path.resolve(process.cwd(), cleaned);
+}
+
 // Read workflow paths from .env dynamically
 function getPaths() {
-  const invoicesDir = path.resolve(process.cwd(), process.env.INVOICES_DIR || "./data/invoices");
+  const invoicesDir = cleanEnvPath(process.env.INVOICES_DIR, "./data/invoices");
   let archiveDir = "";
-  if (process.env.INVOICES_ARCHIVE_DIR && path.isAbsolute(process.env.INVOICES_ARCHIVE_DIR)) {
-    archiveDir = process.env.INVOICES_ARCHIVE_DIR;
+  const rawArchive = process.env.INVOICES_ARCHIVE_DIR ? process.env.INVOICES_ARCHIVE_DIR.replace(/^["']|["']$/g, "").trim() : "";
+  if (rawArchive && path.isAbsolute(rawArchive)) {
+    archiveDir = rawArchive;
   } else {
     archiveDir = path.join(invoicesDir, "archive");
   }
-  const paymentsSummaryDir = path.resolve(process.cwd(), process.env.PAYMENTS_SUMMARY_DIR || "./data/payments_summary");
-  const bankPaymentUploadDir = path.resolve(process.cwd(), process.env.BANK_PAYMENT_UPLOAD_DIR || "./data/bank_payment_upload");
+  const paymentsSummaryDir = cleanEnvPath(process.env.PAYMENTS_SUMMARY_DIR, "./data/payments_summary");
+  const bankPaymentUploadDir = cleanEnvPath(process.env.BANK_PAYMENT_UPLOAD_DIR, "./data/bank_payment_upload");
 
   return {
     invoicesDir,
@@ -209,7 +216,7 @@ app.get("/api/invoices/file/:filename", (req, res) => {
     }
 
     res.contentType("application/pdf");
-    res.sendFile(filePath);
+    res.sendFile(filePath, { dotfiles: "allow" });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -677,11 +684,14 @@ app.get("/api/payment/download/:type/:filename", (req, res) => {
     }
 
     const filePath = path.join(targetDir, filename);
+    console.log(`[Download Diagnostic] Type: ${type}, Filename: ${filename}, TargetDir: ${targetDir}, FullPath: ${filePath}`);
     if (!fs.existsSync(filePath)) {
+      console.warn(`[Download Diagnostic] File DOES NOT exist at: ${filePath}`);
       return res.status(404).json({ error: "File not found" });
     }
 
-    res.download(filePath, filename);
+    console.log(`[Download Diagnostic] File exists at: ${filePath}. Initiating res.download...`);
+    res.download(filePath, filename, { dotfiles: "allow" });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
