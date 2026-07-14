@@ -1,160 +1,160 @@
 {
-  "notificationNumber": "16/2026",
+  "notificationNumber": "19/2026",
   "status": 1,
-  "notPublishDate": "22-05-2026",
+  "notPublishDate": "03-07-2026",
   "currencyDetail": [
     {
       "currencyCode": "AED",
       "currencyDesc": "UAE Dirham",
-      "cbicImport": 27.0,
-      "cbicExport": 25.45,
+      "cbicImport": 26.45,
+      "cbicExport": 24.95,
       "units": "1.0"
     },
     {
       "currencyCode": "AUD",
       "currencyDesc": "Australian Dollar",
-      "cbicImport": 70.05,
-      "cbicExport": 67.05,
+      "cbicImport": 66.5,
+      "cbicExport": 63.6,
       "units": "1.0"
     },
     {
       "currencyCode": "BHD",
       "currencyDesc": "Bahraini Dinar",
-      "cbicImport": 262.75,
-      "cbicExport": 247.55,
+      "cbicImport": 266.2,
+      "cbicExport": 236.3,
       "units": "1.0"
     },
     {
       "currencyCode": "CAD",
       "currencyDesc": "Canadian Dollar",
-      "cbicImport": 71.05,
-      "cbicExport": 68.75,
+      "cbicImport": 67.4,
+      "cbicExport": 65.2,
       "units": "1.0"
     },
     {
       "currencyCode": "CHF",
       "currencyDesc": "Swiss Franc",
-      "cbicImport": 124.95,
-      "cbicExport": 119.6,
+      "cbicImport": 118.85,
+      "cbicExport": 113.85,
       "units": "1.0"
     },
     {
       "currencyCode": "CNY",
       "currencyDesc": "Chinese Yuan",
-      "cbicImport": 14.4,
-      "cbicExport": 13.9,
+      "cbicImport": 14.15,
+      "cbicExport": 13.65,
       "units": "1.0"
     },
     {
       "currencyCode": "DKK",
       "currencyDesc": "Danish Kroner",
-      "cbicImport": 15.15,
-      "cbicExport": 14.75,
+      "cbicImport": 14.55,
+      "cbicExport": 14.15,
       "units": "1.0"
     },
     {
       "currencyCode": "EUR",
       "currencyDesc": "EURO",
-      "cbicImport": 113.7,
-      "cbicExport": 109.9,
+      "cbicImport": 109.1,
+      "cbicExport": 105.4,
       "units": "1.0"
     },
     {
       "currencyCode": "GBP",
       "currencyDesc": "Pound Sterling",
-      "cbicImport": 131.2,
-      "cbicExport": 127.15,
+      "cbicImport": 126.35,
+      "cbicExport": 122.35,
       "units": "1.0"
     },
     {
       "currencyCode": "HKD",
       "currencyDesc": "Hong Kong Dollar",
-      "cbicImport": 12.45,
-      "cbicExport": 12.15,
+      "cbicImport": 12.2,
+      "cbicExport": 11.9,
       "units": "1.0"
     },
     {
       "currencyCode": "JPY",
       "currencyDesc": "Japanese Yen",
-      "cbicImport": 61.45,
-      "cbicExport": 59.6,
+      "cbicImport": 59.25,
+      "cbicExport": 57.45,
       "units": "100.0"
     },
     {
       "currencyCode": "KRW",
       "currencyDesc": "Korean won",
-      "cbicImport": 6.6,
-      "cbicExport": 6.2,
+      "cbicImport": 6.3,
+      "cbicExport": 5.95,
       "units": "100.0"
     },
     {
       "currencyCode": "KWD",
       "currencyDesc": "Kuwaiti Dinar",
-      "cbicImport": 320.8,
-      "cbicExport": 301.7,
+      "cbicImport": 314.5,
+      "cbicExport": 295.7,
       "units": "1.0"
     },
     {
       "currencyCode": "NOK",
       "currencyDesc": "Norwegian Kroner",
-      "cbicImport": 10.5,
-      "cbicExport": 10.25,
+      "cbicImport": 9.7,
+      "cbicExport": 9.45,
       "units": "1.0"
     },
     {
       "currencyCode": "NZD",
       "currencyDesc": "New Zealand Dollar",
-      "cbicImport": 57.8,
-      "cbicExport": 55.05,
+      "cbicImport": 54.55,
+      "cbicExport": 51.9,
       "units": "1.0"
     },
     {
       "currencyCode": "QAR",
       "currencyDesc": "Qatari Riyal",
-      "cbicImport": 27.15,
-      "cbicExport": 25.65,
+      "cbicImport": 27.8,
+      "cbicExport": 24.35,
       "units": "1.0"
     },
     {
       "currencyCode": "SAR",
       "currencyDesc": "Saudi Arabian Riyal",
-      "cbicImport": 26.3,
-      "cbicExport": 25.25,
+      "cbicImport": 26.75,
+      "cbicExport": 23.85,
       "units": "1.0"
     },
     {
       "currencyCode": "SEK",
       "currencyDesc": "Swedish Kroner",
-      "cbicImport": 10.45,
-      "cbicExport": 10.15,
+      "cbicImport": 9.8,
+      "cbicExport": 9.55,
       "units": "1.0"
     },
     {
       "currencyCode": "SGD",
       "currencyDesc": "Singapore Dollar",
-      "cbicImport": 76.5,
-      "cbicExport": 73.95,
+      "cbicImport": 74.0,
+      "cbicExport": 71.55,
       "units": "1.0"
     },
     {
       "currencyCode": "TRY",
       "currencyDesc": "Turkish Lira",
-      "cbicImport": 2.15,
-      "cbicExport": 2.05,
+      "cbicImport": 2.1,
+      "cbicExport": 1.95,
       "units": "1.0"
     },
     {
       "currencyCode": "USD",
       "currencyDesc": "US Dollar",
-      "cbicImport": 97.05,
-      "cbicExport": 95.35,
+      "cbicImport": 95.2,
+      "cbicExport": 93.5,
       "units": "1.0"
     },
     {
       "currencyCode": "ZAR",
       "currencyDesc": "South African Rand",
-      "cbicImport": 6.0,
-      "cbicExport": 5.65,
+      "cbicImport": 5.85,
+      "cbicExport": 5.55,
       "units": "1.0"
     }
   ],

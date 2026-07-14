@@ -43,11 +43,14 @@
         </button>
       </nav>
 
-      <div class="sidebar-footer">
+      <div class="sidebar-footer" style="display: flex; flex-direction: column; gap: 8px;">
         <div class="status-indicator">
           <div class="pulse-dot green" id="global-status-dot"></div>
           <span id="global-status-text">Connecting...</span>
         </div>
+        <button class="btn btn-secondary btn-sm" id="btn-devtools" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; padding: 6px 12px;">
+          🛠️ Open DevTools
+        </button>
       </div>
     </aside>
 
@@ -259,94 +262,100 @@
 
               <!-- Right Panel: Extracted Fields Editor Form -->
               <div class="split-right card glass">
-                <!-- Status warnings (e.g. Vendor not found Alert) -->
-                <div class="alert-box" id="vendor-status-alert">
-                  <div class="alert-content">
-                    <h4 id="alert-title">Checking database...</h4>
-                    <p id="alert-desc">Verifying vendor records in Zoho Books.</p>
+                <!-- Success view (hidden by default) -->
+                <div id="review-success-view" style="display: none; height: 100%;"></div>
+
+                <!-- Form wrapper (so we can toggle it easily) -->
+                <div id="review-form-container" style="display: block;">
+                  <!-- Status warnings (e.g. Vendor not found Alert) -->
+                  <div class="alert-box" id="vendor-status-alert">
+                    <div class="alert-content">
+                      <h4 id="alert-title">Checking database...</h4>
+                      <p id="alert-desc">Verifying vendor records in Zoho Books.</p>
+                    </div>
+                    <div class="alert-actions" id="alert-actions-div">
+                      <!-- Dynamic Buttons -->
+                    </div>
                   </div>
-                  <div class="alert-actions" id="alert-actions-div">
-                    <!-- Dynamic Buttons -->
-                  </div>
+
+                  <!-- Form Fields -->
+                  <form id="invoice-review-form" class="review-form">
+                    <div class="form-section">
+                      <h4>Vendor Information</h4>
+                      <div class="form-grid cols-2">
+                        <div class="form-group">
+                          <label for="f-vendor-name">Vendor Name <span class="required">*</span></label>
+                          <input type="text" id="f-vendor-name" required>
+                        </div>
+                        <div class="form-group">
+                          <label for="f-vendor-gst">Vendor GSTIN</label>
+                          <input type="text" id="f-vendor-gst" placeholder="e.g. 27AAAAA0000A1Z">
+                        </div>
+                        <div class="form-group">
+                          <label for="f-vendor-pan">Vendor PAN</label>
+                          <input type="text" id="f-vendor-pan">
+                        </div>
+                        <div class="form-group">
+                          <label for="f-vendor-email">Email Address</label>
+                          <input type="email" id="f-vendor-email">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="form-section">
+                      <h4>Bill Settings & Identification</h4>
+                      <div class="form-grid cols-3">
+                        <div class="form-group">
+                          <label for="f-bill-number">Bill/Invoice No. <span class="required">*</span></label>
+                          <input type="text" id="f-bill-number" required>
+                        </div>
+                        <div class="form-group">
+                          <label for="f-bill-date">Bill Date <span class="required">*</span></label>
+                          <input type="date" id="f-bill-date" required>
+                        </div>
+                        <div class="form-group">
+                          <label for="f-bill-due-date">Due Date <span class="required">*</span></label>
+                          <input type="date" id="f-bill-due-date" required>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="form-section">
+                      <h4>Line Items Mapping</h4>
+                      <div class="line-items-wrapper">
+                        <table class="line-items-table" id="review-items-table">
+                          <thead>
+                            <tr>
+                              <th width="35%">Item & Description</th>
+                              <th width="12%">Rate (₹)</th>
+                              <th width="10%">Qty</th>
+                              <th width="23%">Expense Account</th>
+                              <th width="20%">Tax Rate</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <!-- Dynamic rows -->
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <!-- Submit Panel -->
+                    <div class="review-submit-bar mt-2">
+                      <div class="total-summary">
+                        <span class="total-label">Subtotal: <span id="bill-subtotal-val">₹0.00</span></span>
+                        <span class="total-label tds-deduction" id="bill-tds-container" style="display: none;">TDS: <span id="bill-tds-val">-₹0.00</span></span>
+                        <span class="total-final">Total Balance: <span id="bill-total-val">₹0.00</span></span>
+                      </div>
+                      
+                      <input type="hidden" id="f-vendor-id" value="">
+                      
+                      <button type="submit" class="btn btn-primary" id="btn-push-zoho" disabled>
+                        🚀 Push Bill to Zoho Books
+                      </button>
+                    </div>
+                  </form>
                 </div>
-
-                <!-- Form Fields -->
-                <form id="invoice-review-form" class="review-form">
-                  <div class="form-section">
-                    <h4>Vendor Information</h4>
-                    <div class="form-grid cols-2">
-                      <div class="form-group">
-                        <label for="f-vendor-name">Vendor Name <span class="required">*</span></label>
-                        <input type="text" id="f-vendor-name" required>
-                      </div>
-                      <div class="form-group">
-                        <label for="f-vendor-gst">Vendor GSTIN</label>
-                        <input type="text" id="f-vendor-gst" placeholder="e.g. 27AAAAA0000A1Z">
-                      </div>
-                      <div class="form-group">
-                        <label for="f-vendor-pan">Vendor PAN</label>
-                        <input type="text" id="f-vendor-pan">
-                      </div>
-                      <div class="form-group">
-                        <label for="f-vendor-email">Email Address</label>
-                        <input type="email" id="f-vendor-email">
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="form-section">
-                    <h4>Bill Settings & Identification</h4>
-                    <div class="form-grid cols-3">
-                      <div class="form-group">
-                        <label for="f-bill-number">Bill/Invoice No. <span class="required">*</span></label>
-                        <input type="text" id="f-bill-number" required>
-                      </div>
-                      <div class="form-group">
-                        <label for="f-bill-date">Bill Date <span class="required">*</span></label>
-                        <input type="date" id="f-bill-date" required>
-                      </div>
-                      <div class="form-group">
-                        <label for="f-bill-due-date">Due Date <span class="required">*</span></label>
-                        <input type="date" id="f-bill-due-date" required>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="form-section">
-                    <h4>Line Items Mapping</h4>
-                    <div class="line-items-wrapper">
-                      <table class="line-items-table" id="review-items-table">
-                        <thead>
-                          <tr>
-                            <th width="35%">Item & Description</th>
-                            <th width="12%">Rate (₹)</th>
-                            <th width="10%">Qty</th>
-                            <th width="23%">Expense Account</th>
-                            <th width="20%">Tax Rate</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <!-- Dynamic rows -->
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  <!-- Submit Panel -->
-                  <div class="review-submit-bar mt-2">
-                    <div class="total-summary">
-                      <span class="total-label">Subtotal: <span id="bill-subtotal-val">₹0.00</span></span>
-                      <span class="total-label tds-deduction" id="bill-tds-container" style="display: none;">TDS: <span id="bill-tds-val">-₹0.00</span></span>
-                      <span class="total-final">Total Balance: <span id="bill-total-val">₹0.00</span></span>
-                    </div>
-                    
-                    <input type="hidden" id="f-vendor-id" value="">
-                    
-                    <button type="submit" class="btn btn-primary" id="btn-push-zoho" disabled>
-                      🚀 Push Bill to Zoho Books
-                    </button>
-                  </div>
-                </form>
               </div>
             </div>
           </div>
@@ -476,6 +485,131 @@
             </div>
             <div class="console-output code-font" id="payments-terminal-output">
               Starting payment spreadsheet processing...
+            </div>
+          </div>
+
+          <!-- SECTION DIVISION: RECONCILIATION & MANUAL PAYMENT -->
+          <div class="form-section-title mt-3">Reconciliation & Manual Payment Marking</div>
+
+          <div class="grid-layout cols-3 mb-2">
+            <!-- 1. Auto-Reconciler Card (cols 2) -->
+            <div class="card glass shadow col-span-2">
+              <div class="card-header border-bottom">
+                <h3>Bank Statement Upload & Match</h3>
+                <span class="badge badge-emerald">Auto Matcher</span>
+              </div>
+              <div class="card-body">
+                <p class="desc-text mb-2">
+                  Upload a bank statement (CSV or XLSX). The system will parse debit transactions, match them with unpaid bills in Zoho Books by invoice description, and prepare them for batch payment marking.
+                </p>
+
+                <div class="form-grid cols-2 mb-2">
+                  <div class="form-group">
+                    <label for="reconcile-account-select">Payment Debit Account (Zoho Bank Account) <span class="required">*</span></label>
+                    <select id="reconcile-account-select">
+                      <option value="">-- Select Bank/Cash Account --</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="dropzone-container">
+                  <div class="dropzone" id="statement-dropzone">
+                    <div class="dropzone-content">
+                      <span class="upload-icon">📊</span>
+                      <h3>Drag & Drop Bank Statement (CSV / XLSX)</h3>
+                      <p>or click to browse local files</p>
+                      <span class="file-limits">Supports standard bank transaction exports</span>
+                      <input type="file" id="statement-file-input" accept=".csv,.xlsx,.xls" style="display: none;">
+                    </div>
+                  </div>
+                  <div class="upload-progress-container" id="statement-progress-container" style="display: none;">
+                    <div class="progress-info">
+                      <span id="statement-status-text">Uploading statement...</span>
+                      <span id="statement-percent">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                      <div class="progress-fill" id="statement-progress-fill" style="width: 0%"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Manual Payment Card (col 1) -->
+            <div class="card glass shadow">
+              <div class="card-header border-bottom">
+                <h3>Manual Payment Record</h3>
+                <span class="header-icon">✍️</span>
+              </div>
+              <div class="card-body">
+                <p class="desc-text mb-2">
+                  Fetch unpaid bills directly from Zoho and record payment details (Date, UTR/Reference, Amount) manually.
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
+                  <button class="btn btn-secondary" style="width: 100%; justify-content: center; gap: 8px;" id="btn-fetch-unpaid-bills">
+                    🔍 Fetch Unpaid Bills from Zoho
+                  </button>
+                  
+                  <div id="manual-payment-form" style="display: none; border-top: 1px solid var(--border-color); padding-top: 12px; flex-direction: column; gap: 10px;">
+                    <div class="form-group">
+                      <label for="manual-bill-select">Target Unpaid Bill <span class="required">*</span></label>
+                      <select id="manual-bill-select">
+                        <option value="">-- Select Bill --</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="manual-pay-date">Payment Date <span class="required">*</span></label>
+                      <input type="date" id="manual-pay-date">
+                    </div>
+                    <div class="form-group">
+                      <label for="manual-pay-amount">Amount Paid <span class="required">*</span></label>
+                      <input type="number" id="manual-pay-amount" step="0.01" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                      <label for="manual-pay-utr">UTR / Reference Number</label>
+                      <input type="text" id="manual-pay-utr" placeholder="UTR transaction ID">
+                    </div>
+                    <button class="btn btn-primary mt-1" id="btn-submit-manual-payment" style="justify-content: center;">
+                      💾 Record Manual Payment
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Reconciliation Match Table Preview Card (Full-width, hidden until statement parsed) -->
+          <div class="card glass shadow mb-2" id="reconcile-preview-card" style="display: none;">
+            <div class="card-header border-bottom">
+              <h3>Parsed Bank Statement Matches</h3>
+              <span class="badge badge-amber" id="reconcile-match-count">0 Matches Found</span>
+            </div>
+            <div class="card-body">
+              <div class="table-container mb-2">
+                <table class="data-table" id="reconcile-preview-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 40px; text-align: center;"><input type="checkbox" id="reconcile-select-all" checked></th>
+                      <th>Txn Date</th>
+                      <th>Transaction Narration</th>
+                      <th>Txn Amount</th>
+                      <th>Matched Zoho Invoice</th>
+                      <th>Vendor</th>
+                      <th>Bill Balance</th>
+                      <th>Payment UTR</th>
+                      <th>Match Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="reconcile-preview-tbody">
+                    <!-- Loaded dynamically -->
+                  </tbody>
+                </table>
+              </div>
+              <div class="text-right">
+                <button class="btn btn-primary" id="btn-apply-reconciled">
+                  🚀 Mark Selected Payments as Paid in Zoho
+                </button>
+              </div>
             </div>
           </div>
 

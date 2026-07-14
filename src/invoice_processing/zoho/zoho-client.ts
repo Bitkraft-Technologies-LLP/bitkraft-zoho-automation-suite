@@ -8,6 +8,7 @@ dotenv.config();
 export class ZohoClient {
   private accessToken: string | null = null;
   private tokenRequestPromise: Promise<string> | null = null;
+  private lastTokenErrorTime: number = 0;
   private clientId: string;
   private clientSecret: string;
   private refreshToken: string;
@@ -47,6 +48,10 @@ export class ZohoClient {
   public async getAccessToken(): Promise<string> {
     if (this.accessToken) return this.accessToken;
 
+    if (Date.now() - this.lastTokenErrorTime < 2 * 60 * 1000) {
+      throw new Error("Zoho Authentication Failed: Cooldown active to prevent rate-limit spam.");
+    }
+
     if (this.tokenRequestPromise) {
       return this.tokenRequestPromise;
     }
@@ -76,6 +81,7 @@ export class ZohoClient {
 
         return this.accessToken!;
       } catch (error: any) {
+        this.lastTokenErrorTime = Date.now();
         console.error(
           "Failed to refresh Zoho token:",
           error.response?.data || error.message,
@@ -119,6 +125,11 @@ export class ZohoClient {
     }
   }
 
+  public clearVendorsCache() {
+    this.cache.vendors = null;
+    this.cache.vendorDetails.clear();
+  }
+
   async getVendors(): Promise<any[]> {
     if (this.cache.vendors) return this.cache.vendors;
     
@@ -160,6 +171,7 @@ export class ZohoClient {
           "Content-Type": "application/json",
         },
       });
+      this.clearVendorsCache();
       return response.data.contact;
     } catch (error: any) {
       console.error(
@@ -226,5 +238,26 @@ export class ZohoClient {
       params: params
     });
     return response.data.bills || [];
+  }
+
+  async createVendorPayment(paymentData: any) {
+    const token = await this.getAccessToken();
+    const url = `https://www.zohoapis.${this.region}/books/v3/vendorpayments?organization_id=${this.orgId}`;
+
+    try {
+      const response = await axios.post(url, paymentData, {
+        headers: {
+          Authorization: `Zoho-oauthtoken ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error(
+        "Failed to create vendor payment in Zoho:",
+        error.response?.data || error.message,
+      );
+      throw error;
+    }
   }
 }

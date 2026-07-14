@@ -149,6 +149,18 @@ This generates:
 - **Payment Summary CSV**: `payments_summary/unpaid_bills_MMM-YYYY.csv`
 - **Bank Upload XLSX**: `bank_payment_upload/bank_payment_MMM-YYYY.xlsx`
 
+### Reconcile Bank Statements
+
+```bash
+npx ts-node src/payment_automation/reconcile-statement.ts path/to/statement.csv
+```
+
+This parses the uploaded bank statement (supports CSV, XLSX, and XLS formats), matches debit transactions against unpaid/partially paid bills in Zoho Books by invoice description format, prints a matching summary table, and lets you record exact matched payments in Zoho Books.
+
+Options:
+- `--account-id <id>`: Explicitly define the Zoho Bank Account ID to pay through. If not provided, it tries to auto-resolve an account name containing "Kotak" or "5253078611".
+- `--yes` or `-y`: Automatically record exact matches in Zoho Books without interactive confirmation.
+
 ### Currency Exchange Rate Automation
 
 #### Manual Run (Latest Rates)

@@ -5,11 +5,20 @@ import path from "path";
 import fs from "fs";
 import { spawn } from "child_process";
 import dotenv from "dotenv";
+import * as XLSX from "xlsx";
 import { ZohoClient } from "../invoice_processing/zoho/zoho-client";
 import { extractTextFromPDF, parseInvoiceWithAI } from "../invoice_processing/parser/pdf-parser";
 
 // Load environment variables
 dotenv.config();
+
+let zohoInstance: ZohoClient | null = null;
+function getZoho(): ZohoClient {
+  if (!zohoInstance) {
+    zohoInstance = new ZohoClient();
+  }
+  return zohoInstance;
+}
 
 const app = express();
 const PORT = process.env.DASHBOARD_PORT || 3000;
@@ -38,12 +47,14 @@ function getPaths() {
   }
   const paymentsSummaryDir = cleanEnvPath(process.env.PAYMENTS_SUMMARY_DIR, "./data/payments_summary");
   const bankPaymentUploadDir = cleanEnvPath(process.env.BANK_PAYMENT_UPLOAD_DIR, "./data/bank_payment_upload");
+  const bankStatementsDir = cleanEnvPath(process.env.BANK_STATEMENTS_DIR, "./data/bank_statements");
 
   return {
     invoicesDir,
     archiveDir,
     paymentsSummaryDir,
     bankPaymentUploadDir,
+    bankStatementsDir,
   };
 }
 
@@ -95,7 +106,7 @@ app.get("/api/status", async (req, res) => {
     let orgState = "N/A";
 
     try {
-      const zoho = new ZohoClient();
+      const zoho = getZoho();
       const org = await zoho.getOrganization();
       if (org) {
         zohoConnected = true;
@@ -189,6 +200,7 @@ app.post("/api/config", (req, res) => {
     });
 
     fs.writeFileSync(envPath, envContent.trim() + "\n");
+    zohoInstance = null; // Clear cached instance so new env values are loaded
     ensureDirectories(); // make sure folders exist if they were changed
     
     res.json({ success: true, message: "Configuration updated successfully in .env" });
@@ -290,6 +302,7 @@ app.delete("/api/invoices/:filename", (req, res) => {
 });
 
 // AI Dry-run Parsing Endpoint
+// AI Dry-run Parsing Endpoint
 app.post("/api/invoices/extract", async (req, res) => {
   try {
     const { filename } = req.body;
@@ -304,7 +317,15 @@ app.post("/api/invoices/extract", async (req, res) => {
       return res.status(404).json({ error: "File not found" });
     }
 
-    const zoho = new ZohoClient();
+    // Set headers for streaming NDJSON
+    res.setHeader("Content-Type", "application/x-ndjson");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    res.write(JSON.stringify({ step: "text_extract", message: "Extracting text structure from PDF..." }) + "\n");
+
+    const zoho = getZoho();
+    zoho.clearVendorsCache();
     const orgGst = process.env.ZOHO_ORG_GST;
     const orgName = process.env.ZOHO_ORG_NAME || "Your Organization";
     const orgState = process.env.ZOHO_ORG_STATE;
@@ -318,6 +339,8 @@ app.post("/api/invoices/extract", async (req, res) => {
       console.warn("Text extraction failed, falling back to vision.");
     }
 
+    res.write(JSON.stringify({ step: "zoho_config", message: "Fetching active Zoho Chart of Accounts, Taxes, and Contacts..." }) + "\n");
+
     const pdfBuffer = fs.readFileSync(filePath);
 
     // Get Configuration
@@ -327,8 +350,12 @@ app.post("/api/invoices/extract", async (req, res) => {
       zoho.getVendors(),
     ]);
 
+    res.write(JSON.stringify({ step: "gemini_parse", message: "Sending content to Gemini AI for schema layout mapping..." }) + "\n");
+
     // AI parse (dry-run, extracts details)
     const billData = await parseInvoiceWithAI(text, { accounts, taxes, pdfBuffer, orgGst, orgName, orgState });
+
+    res.write(JSON.stringify({ step: "vendor_match", message: "Verifying extracted GSTIN and vendor profile in Zoho..." }) + "\n");
 
     // Validate/Match Vendor in database
     let vendorMatch = null;
@@ -346,31 +373,40 @@ app.post("/api/invoices/extract", async (req, res) => {
       );
     }
 
-    res.json({
-      billData,
-      accounts: accounts.map((a: any) => ({ id: a.account_id, name: a.account_name })),
-      taxes: taxes.map((t: any) => ({ id: t.tax_id, name: t.tax_name, rate: t.tax_percentage, spec: t.tax_specification })),
-      vendorStatus: {
-        matched: !!vendorMatch,
-        vendor: vendorMatch || null,
-        suggestedVendor: vendorMatch ? null : {
-          name: billData.vendor_name,
-          gst: billData.vendor_gst || "",
-          pan: billData.vendor_pan || "",
-          phone: billData.vendor_phone || "",
-          email: billData.vendor_email || "",
-          address: typeof billData.vendor_address === "string" ? billData.vendor_address : (billData.vendor_address?.street || ""),
-          city: billData.vendor_address?.city || "",
-          state: billData.vendor_address?.state || "",
-          zip: billData.vendor_address?.zip || "",
-          bankDetails: billData.vendor_bank_details || null,
+    res.write(JSON.stringify({
+      step: "complete",
+      data: {
+        billData,
+        accounts: accounts.map((a: any) => ({ id: a.account_id, name: a.account_name })),
+        taxes: taxes.map((t: any) => ({ id: t.tax_id, name: t.tax_name, rate: t.tax_percentage, spec: t.tax_specification })),
+        vendorStatus: {
+          matched: !!vendorMatch,
+          vendor: vendorMatch || null,
+          suggestedVendor: vendorMatch ? null : {
+            name: billData.vendor_name,
+            gst: billData.vendor_gst || "",
+            pan: billData.vendor_pan || "",
+            phone: billData.vendor_phone || "",
+            email: billData.vendor_email || "",
+            address: typeof billData.vendor_address === "string" ? billData.vendor_address : (billData.vendor_address?.street || ""),
+            city: billData.vendor_address?.city || "",
+            state: billData.vendor_address?.state || "",
+            zip: billData.vendor_address?.zip || "",
+            bankDetails: billData.vendor_bank_details || null,
+          }
         }
       }
-    });
+    }) + "\n");
+    res.end();
 
   } catch (error: any) {
     console.error("[Dashboard] Extraction Error:", error);
-    res.status(500).json({ error: error.message || "Failed to extract invoice data" });
+    if (!res.headersSent) {
+      res.status(500).json({ error: error.message || "Failed to extract invoice data" });
+    } else {
+      res.write(JSON.stringify({ step: "error", message: error.message || "Failed to extract invoice data" }) + "\n");
+      res.end();
+    }
   }
 });
 
@@ -378,7 +414,7 @@ app.post("/api/invoices/extract", async (req, res) => {
 app.post("/api/invoices/create-vendor", async (req, res) => {
   try {
     const vendorData = req.body;
-    const zoho = new ZohoClient();
+    const zoho = getZoho();
 
     console.log(`[Dashboard] Creating vendor in Zoho: ${vendorData.name}`);
 
@@ -443,7 +479,7 @@ app.post("/api/invoices/approve", async (req, res) => {
       return res.status(404).json({ error: "Invoice file not found" });
     }
 
-    const zoho = new ZohoClient();
+    const zoho = getZoho();
     console.log(`[Dashboard] Creating bill in Zoho for vendor ID: ${billPayload.vendor_id}`);
 
     // Fetch full vendor details to check GST treatment and TDS settings
@@ -551,7 +587,7 @@ app.get("/api/currency/run", async (req, res) => {
 
   let accessToken = "";
   try {
-    const zoho = new ZohoClient();
+    const zoho = getZoho();
     accessToken = await zoho.getAccessToken();
     res.write("data: Successfully acquired pre-fetched Zoho access token.\n\n");
   } catch (err: any) {
@@ -693,6 +729,432 @@ app.get("/api/payment/download/:type/:filename", (req, res) => {
     console.log(`[Download Diagnostic] File exists at: ${filePath}. Initiating res.download...`);
     res.download(filePath, filename, { dotfiles: "allow" });
   } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// 6. BANK STATEMENT RECONCILIATION & PAYMENT AUTOMATION APIS
+// ============================================================================
+
+// Multer storage for bank statements
+const statementStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    ensureDirectories();
+    cb(null, getPaths().bankStatementsDir);
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    const cleanName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_");
+    cb(null, `statement_${timestamp}_${cleanName}`);
+  },
+});
+
+const uploadStatement = multer({
+  storage: statementStorage,
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext === ".csv" || ext === ".xlsx" || ext === ".xls") {
+      cb(null, true);
+    } else {
+      cb(new Error("Only CSV and Excel files (.xlsx, .xls) are allowed"));
+    }
+  },
+});
+
+// Parse dates dynamically from spreadsheet cells
+function formatDate(val: any): string {
+  const today = (new Date().toISOString().split("T")[0]) as string;
+  if (!val) return today;
+  
+  if (val instanceof Date) {
+    return (val.toISOString().split("T")[0]) as string;
+  }
+
+  // Excel serial date number
+  if (typeof val === "number") {
+    try {
+      const dateObj = XLSX.SSF.parse_date_code(val);
+      if (dateObj) {
+        const year = dateObj.y;
+        const month = String(dateObj.m).padStart(2, "0");
+        const day = String(dateObj.d).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      }
+    } catch (e) {
+      // Fallback
+    }
+  }
+
+  let str = String(val).trim();
+  if (str.includes(" ")) {
+    str = (str.split(" ")[0]) as string;
+  }
+
+  // Match DD/MM/YYYY or DD-MM-YYYY
+  const dmyMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmyMatch && dmyMatch[1] && dmyMatch[2] && dmyMatch[3]) {
+    const day = dmyMatch[1].padStart(2, "0");
+    const month = dmyMatch[2].padStart(2, "0");
+    const year = dmyMatch[3];
+    return `${year}-${month}-${day}`;
+  }
+
+  // Match YYYY/MM/DD or YYYY-MM-DD
+  const ymdMatch = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (ymdMatch && ymdMatch[1] && ymdMatch[2] && ymdMatch[3]) {
+    const year = ymdMatch[1];
+    const month = ymdMatch[2].padStart(2, "0");
+    const day = ymdMatch[3].padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  // Try parsing with native Date
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    return (parsed.toISOString().split("T")[0]) as string;
+  }
+
+  return today;
+}
+
+// Dynamically parses and maps columns in bank statements
+function parseBankStatement(filePath: string): any[] {
+  const workbook = XLSX.readFile(filePath);
+  const sheetName = workbook.SheetNames[0];
+  if (!sheetName) {
+    throw new Error("The uploaded bank statement file is empty.");
+  }
+  const worksheet = workbook.Sheets[sheetName];
+  if (!worksheet) {
+    throw new Error(`The sheet "${sheetName}" could not be loaded.`);
+  }
+  const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+  let headerIndex = -1;
+  let colMap = {
+    date: -1,
+    narration: -1,
+    amount: -1,
+    debit: -1,
+    credit: -1,
+    ref: -1,
+    type: -1
+  };
+
+  const narrationKeywords = ["narration", "description", "particular", "remark", "details", "memo", "naration"];
+  const dateKeywords = ["date", "dt"];
+  const amountKeywords = ["amount", "value", "transaction amount"];
+  const debitKeywords = ["debit", "withdrawal", "dr", "outflow", "payment"];
+  const creditKeywords = ["credit", "deposit", "cr", "inflow"];
+  const refKeywords = ["utr", "ref", "chq", "cheque", "reference", "txn id", "transaction id"];
+  const typeKeywords = ["dr/cr", "dr / cr", "type", "d/c", "transaction type"];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (!Array.isArray(row)) continue;
+
+    const tempMap = { date: -1, narration: -1, amount: -1, debit: -1, credit: -1, ref: -1, type: -1 };
+
+    for (let j = 0; j < row.length; j++) {
+      const cellVal = String(row[j] || "").trim().toLowerCase();
+      if (!cellVal) continue;
+
+      const isDateCol = cellVal.includes("date") || cellVal === "dt";
+
+      if (isDateCol) {
+        if (tempMap.date === -1) {
+          tempMap.date = j;
+        }
+        continue;
+      }
+
+      if (narrationKeywords.some(k => cellVal.includes(k)) && tempMap.narration === -1) {
+        tempMap.narration = j;
+      } else if (typeKeywords.some(k => cellVal === k || cellVal.includes(k)) && tempMap.type === -1) {
+        tempMap.type = j;
+      } else if (debitKeywords.some(k => cellVal === k || cellVal.includes(k)) && tempMap.debit === -1) {
+        if (cellVal.includes("dr") && (cellVal.includes("cr") || cellVal.includes("type") || cellVal.includes("/"))) {
+          continue;
+        }
+        tempMap.debit = j;
+      } else if (creditKeywords.some(k => cellVal === k || cellVal.includes(k)) && tempMap.credit === -1) {
+        if (cellVal.includes("cr") && (cellVal.includes("dr") || cellVal.includes("type") || cellVal.includes("/"))) {
+          continue;
+        }
+        tempMap.credit = j;
+      } else if (amountKeywords.some(k => cellVal === k || cellVal.includes(k)) && tempMap.amount === -1) {
+        tempMap.amount = j;
+      } else if (refKeywords.some(k => cellVal === k || cellVal.includes(k)) && tempMap.ref === -1) {
+        tempMap.ref = j;
+      }
+    }
+
+    // Match at least date and narration
+    if (tempMap.date !== -1 && tempMap.narration !== -1) {
+      headerIndex = i;
+      colMap = tempMap;
+      break;
+    }
+  }
+
+  if (headerIndex === -1) {
+    throw new Error("Could not automatically identify header columns (Date and Narration) in the bank statement.");
+  }
+
+  const transactions: any[] = [];
+  for (let i = headerIndex + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length === 0) continue;
+
+    const dateVal = colMap.date !== -1 ? row[colMap.date] : null;
+    const narrationVal = colMap.narration !== -1 ? row[colMap.narration] : "";
+    const refVal = colMap.ref !== -1 ? row[colMap.ref] : "";
+
+    let amount = 0;
+    let isDebit = false;
+
+    // Check debit column
+    if (colMap.debit !== -1 && row[colMap.debit] !== undefined && row[colMap.debit] !== null && row[colMap.debit] !== "") {
+      const dVal = parseFloat(String(row[colMap.debit]).replace(/[^0-9.-]/g, ""));
+      if (!isNaN(dVal) && dVal > 0) {
+        amount = dVal;
+        isDebit = true;
+      }
+    }
+
+    // Check amount column if debit not resolved
+    if (!isDebit && colMap.amount !== -1 && row[colMap.amount] !== undefined && row[colMap.amount] !== null && row[colMap.amount] !== "") {
+      const aVal = parseFloat(String(row[colMap.amount]).replace(/[^0-9.-]/g, ""));
+      if (!isNaN(aVal)) {
+        amount = Math.abs(aVal);
+        
+        if (aVal < 0) {
+          isDebit = true;
+        } else if (colMap.type !== -1 && row[colMap.type] !== undefined && row[colMap.type] !== null) {
+          const typeVal = String(row[colMap.type]).trim().toUpperCase();
+          if (typeVal === "DR" || typeVal === "DEBIT") {
+            isDebit = true;
+          } else {
+            isDebit = false;
+          }
+        } else {
+          let hasCreditVal = false;
+          if (colMap.credit !== -1 && row[colMap.credit] !== undefined && row[colMap.credit] !== null && row[colMap.credit] !== "") {
+            const cVal = parseFloat(String(row[colMap.credit]).replace(/[^0-9.-]/g, ""));
+            if (!isNaN(cVal) && cVal > 0) {
+              hasCreditVal = true;
+            }
+          }
+          if (!hasCreditVal) {
+            isDebit = true;
+          }
+        }
+      }
+    }
+
+    if (narrationVal && isDebit && amount > 0) {
+      transactions.push({
+        date: formatDate(dateVal),
+        narration: String(narrationVal).trim(),
+        amount: amount,
+        reference: refVal ? String(refVal).trim() : ""
+      });
+    }
+  }
+
+  return transactions;
+}
+
+// Fetch active Bank and Cash accounts from Zoho
+app.get("/api/payment/bank-accounts", async (req, res) => {
+  try {
+    const zoho = getZoho();
+    const accounts = await zoho.getAccounts();
+    const bankAccounts = accounts
+      .filter((acc: any) => acc.account_type === "bank" || acc.account_type === "cash")
+      .map((acc: any) => ({
+        id: acc.account_id,
+        name: acc.account_name,
+        code: acc.account_code,
+        type: acc.account_type
+      }));
+    res.json(bankAccounts);
+  } catch (error: any) {
+    console.error("Failed to fetch bank accounts:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Fetch unpaid/partially paid bills for manual entry marking
+app.get("/api/payment/unpaid-bills", async (req, res) => {
+  try {
+    const zoho = getZoho();
+    const unpaidBills = await zoho.getBills({ status: "unpaid" });
+    const partiallyPaidBills = await zoho.getBills({ status: "partially_paid" });
+    const allUnpaid = [...unpaidBills, ...partiallyPaidBills];
+    
+    // De-duplicate by bill_id
+    const seenIds = new Set<string>();
+    const uniqueBills = allUnpaid.filter((bill: any) => {
+      if (seenIds.has(bill.bill_id)) return false;
+      seenIds.add(bill.bill_id);
+      return true;
+    });
+    
+    uniqueBills.sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+    
+    res.json(uniqueBills.map((bill: any) => ({
+      bill_id: bill.bill_id,
+      bill_number: bill.bill_number,
+      vendor_name: bill.vendor_name,
+      vendor_id: bill.vendor_id,
+      total: bill.total,
+      balance: bill.balance,
+      date: bill.date,
+      due_date: bill.due_date
+    })));
+  } catch (error: any) {
+    console.error("Failed to fetch unpaid bills:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Upload and match bank statement transactions against unpaid bills
+app.post("/api/payment/upload-statement", uploadStatement.single("statement"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No statement file uploaded" });
+    }
+
+    const filePath = req.file.path;
+    const transactions = parseBankStatement(filePath);
+
+    const zoho = getZoho();
+    const unpaidBills = await zoho.getBills({ status: "unpaid" });
+    const partiallyPaid = await zoho.getBills({ status: "partially_paid" });
+    const allUnpaid = [...unpaidBills, ...partiallyPaid];
+
+    // De-duplicate by bill_id
+    const seenIds = new Set<string>();
+    const allBills = allUnpaid.filter((bill: any) => {
+      if (seenIds.has(bill.bill_id)) return false;
+      seenIds.add(bill.bill_id);
+      return true;
+    });
+
+    const matches: any[] = [];
+    const unmatched: any[] = [];
+
+    for (const txn of transactions) {
+      let matchedBill: any = null;
+      let matchStatus: "exact" | "amount_mismatch" | "none" = "none";
+
+      for (const bill of allBills) {
+        const billNum = bill.bill_number.toLowerCase();
+        const cleanedBillNum = bill.bill_number.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+        const narration = txn.narration.toLowerCase();
+
+        // Match if invoice number or cleaned invoice number is present in narration
+        if (billNum.length >= 3 && (narration.includes(billNum) || narration.includes(cleanedBillNum))) {
+          matchedBill = bill;
+          if (Math.abs(txn.amount - bill.balance) < 0.05) {
+            matchStatus = "exact";
+            break;
+          } else {
+            matchStatus = "amount_mismatch";
+          }
+        }
+      }
+
+      if (matchedBill) {
+        matches.push({
+          transaction: txn,
+          bill: {
+            bill_id: matchedBill.bill_id,
+            bill_number: matchedBill.bill_number,
+            vendor_name: matchedBill.vendor_name,
+            vendor_id: matchedBill.vendor_id,
+            total: matchedBill.total,
+            balance: matchedBill.balance,
+            date: matchedBill.date,
+            due_date: matchedBill.due_date
+          },
+          matchStatus,
+        });
+      } else {
+        unmatched.push(txn);
+      }
+    }
+
+    res.json({
+      success: true,
+      filename: req.file.originalname,
+      matches,
+      unmatchedCount: unmatched.length,
+      unmatched
+    });
+  } catch (error: any) {
+    console.error("Statement upload error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Reconcile and record multiple vendor payments in Zoho Books
+app.post("/api/payment/reconcile", async (req, res) => {
+  try {
+    const { paidThroughAccountId, payments } = req.body;
+    
+    if (!paidThroughAccountId) {
+      return res.status(400).json({ error: "Missing paidThroughAccountId parameter" });
+    }
+    if (!payments || !Array.isArray(payments) || payments.length === 0) {
+      return res.status(400).json({ error: "Missing or empty payments array" });
+    }
+
+    const zoho = getZoho();
+    const results: any[] = [];
+
+    for (const payment of payments) {
+      const { billId, vendorId, amount, date, referenceNumber, description } = payment;
+      
+      try {
+        const payload = {
+          vendor_id: vendorId,
+          date: date,
+          amount: amount,
+          paid_through_account_id: paidThroughAccountId,
+          payment_mode: "Bank Transfer",
+          reference_number: referenceNumber || "",
+          description: description || "Reconciled via statement match",
+          bills: [
+            {
+              bill_id: billId,
+              amount_applied: amount
+            }
+          ]
+        };
+
+        const result = await zoho.createVendorPayment(payload);
+        results.push({
+          billId,
+          success: true,
+          paymentId: result.vendorpayment?.payment_id || "N/A",
+          message: "Payment recorded successfully"
+        });
+      } catch (err: any) {
+        console.error(`Reconciliation failed for bill ID ${billId}:`, err.response?.data || err.message);
+        results.push({
+          billId,
+          success: false,
+          error: err.response?.data?.message || err.message
+        });
+      }
+    }
+
+    res.json({ success: true, results });
+  } catch (error: any) {
+    console.error("Reconciliation execution error:", error);
     res.status(500).json({ error: error.message });
   }
 });
