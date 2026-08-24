@@ -8,6 +8,7 @@ import dotenv from "dotenv";
 import * as XLSX from "xlsx";
 import { ZohoClient } from "../invoice_processing/zoho/zoho-client";
 import { extractTextFromPDF, parseInvoiceWithAI } from "../invoice_processing/parser/pdf-parser";
+import { runEmailSync, setSyncLogger } from "../invoice_processing/email-processor";
 import { NotificationStore } from "../payment_automation/notification-store";
 import { NotificationService } from "../payment_automation/notification-service";
 
@@ -409,6 +410,37 @@ app.post("/api/invoices/extract", async (req, res) => {
       res.write(JSON.stringify({ step: "error", message: error.message || "Failed to extract invoice data" }) + "\n");
       res.end();
     }
+  }
+});
+
+// Sync Invoices from Email API (SSE Stream)
+app.get("/api/invoices/email-sync", async (req, res) => {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+  });
+
+  res.write("data: Connecting to Microsoft Graph API...\n\n");
+
+  try {
+    const zoho = getZoho();
+    
+    // Wire up logger hook to send logs in real-time
+    setSyncLogger((line) => {
+      res.write(`data: ${line}\n\n`);
+    });
+
+    const summary = await runEmailSync(zoho, { dryRun: false });
+    
+    res.write(`data: SUCCESS: Email sync finished. Ingested: ${summary.processed}, Bills Recorded: ${summary.billsCreated}, Failed: ${summary.failures}\n\n`);
+    res.write("event: end\ndata: \n\n");
+  } catch (error: any) {
+    res.write(`data: ERROR: ${error.message}\n\n`);
+    res.write("event: end\ndata: \n\n");
+  } finally {
+    setSyncLogger(null);
+    res.end();
   }
 });
 

@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-async function processInvoice(filePath: string, zoho: ZohoClient, orgGst: string | undefined, orgName: string, orgState: string | undefined, dryRun: boolean): Promise<boolean> {
+export async function processInvoice(filePath: string, zoho: ZohoClient, orgGst: string | undefined, orgName: string, orgState: string | undefined, dryRun: boolean, autoCreateVendor: boolean = false): Promise<boolean> {
   try {
     console.log(`\n${"=".repeat(60)}`);
     console.log(`Processing file: ${filePath}...`);
@@ -68,32 +68,36 @@ async function processInvoice(filePath: string, zoho: ZohoClient, orgGst: string
         `Error: Vendor "${billData.vendor_name}" (GST: ${billData.vendor_gst || 'N/A'}) not found in Zoho Books.`,
       );
       
-      // Interactive Prompt
-      const readline = require('readline').createInterface({
-        input: process.stdin,
-        output: process.stdout
-      });
+      let shouldCreate = autoCreateVendor;
+      let readline: any = null;
 
-      const askQuestion = (query: string) => new Promise<string>(resolve => readline.question(query, resolve));
+      if (!shouldCreate) {
+        // Interactive Prompt
+        readline = require('readline').createInterface({
+          input: process.stdin,
+          output: process.stdout
+        });
 
-      console.log("\n⚠️  Vendor not found.");
-      console.log(`- Name: ${billData.vendor_name}`);
-      console.log(`- GST: ${billData.vendor_gst || 'N/A'}`);
-      console.log(`- PAN: ${billData.vendor_pan || 'N/A'}`);
-      console.log(`- Phone: ${billData.vendor_phone || 'N/A'}`);
-      console.log(`- Email: ${billData.vendor_email || 'N/A'}`);
+        const askQuestion = (query: string) => new Promise<string>(resolve => readline.question(query, resolve));
+
+        console.log("\n⚠️  Vendor not found.");
+        console.log(`- Name: ${billData.vendor_name}`);
+        console.log(`- GST: ${billData.vendor_gst || 'N/A'}`);
+        console.log(`- PAN: ${billData.vendor_pan || 'N/A'}`);
+        console.log(`- Phone: ${billData.vendor_phone || 'N/A'}`);
+        console.log(`- Email: ${billData.vendor_email || 'N/A'}`);
+        
+        const answer = await askQuestion("\nDo you want to create this vendor in Zoho Books? (y/N): ");
+        shouldCreate = answer.trim().toLowerCase() === 'y';
+      } else {
+        console.log(`[Auto-Create] Automatically creating vendor record for "${billData.vendor_name}"...`);
+      }
       
-      const answer = await askQuestion("\nDo you want to create this vendor in Zoho Books? (y/N): ");
-      
-      if (answer.trim().toLowerCase() === 'y') {
+      if (shouldCreate) {
         try {
           console.log("Creating vendor...");
           
           // Construct Address
-          // AI might return string or object, usually string if not strictly enforced as JSON structure in prompt examples. 
-          // For simplicity, we put full address in 'address' field or parse if it's simple.
-          // Zoho API: billing_address: { address, city, state, zip, country }
-          
           const billingAddress = {
             address: typeof billData.vendor_address === 'string' ? billData.vendor_address : (billData.vendor_address?.street || ""),
             city: billData.vendor_address?.city || "",
@@ -113,7 +117,7 @@ async function processInvoice(filePath: string, zoho: ZohoClient, orgGst: string
              });
           }
           
-          // Bank Details to Notes (since API doesn't always expose bank fields easily)
+          // Bank Details to Notes
           let notes = "";
           if (billData.vendor_bank_details) {
               const b = billData.vendor_bank_details;
@@ -137,10 +141,10 @@ async function processInvoice(filePath: string, zoho: ZohoClient, orgGst: string
           
           vendor = createdVendor;
           // Clean up readline
-          readline.close();
+          if (readline) readline.close();
         } catch (err: any) {
           console.error("Failed to create vendor.", err.response?.data?.message || err.message);
-          readline.close();
+          if (readline) readline.close();
           return false;
         }
       } else {
@@ -151,7 +155,7 @@ async function processInvoice(filePath: string, zoho: ZohoClient, orgGst: string
             vendors.slice(0, 10).map((v: any) => v.vendor_name).join(", ")
           );
         }
-        readline.close();
+        if (readline) readline.close();
         return false;
       }
     }
@@ -378,4 +382,6 @@ async function main() {
   }
 }
 
-main();
+if (require.main === module) {
+  main();
+}

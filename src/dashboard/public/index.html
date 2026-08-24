@@ -196,6 +196,12 @@
         <section class="tab-panel" id="panel-invoices">
           <!-- Split view for general files list OR full review screen -->
           <div id="invoice-standard-view">
+            <!-- Email Sync Toolbar -->
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
+              <button class="btn btn-primary" id="btn-sync-emails" style="display: flex; align-items: center; gap: 8px;">
+                📩 Sync Invoices from Email
+              </button>
+            </div>
             <!-- Drag and Drop Dropzone -->
             <div class="dropzone-container mb-2">
               <div class="dropzone" id="pdf-dropzone">
@@ -904,6 +910,27 @@
       </div>
       <div class="modal-footer border-top text-right">
         <button type="button" class="btn btn-secondary" id="btn-close-email-modal-footer">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EMAIL SYNC TERMINAL MODAL OVERLAY -->
+  <div class="modal-overlay" id="email-sync-modal">
+    <div class="modal-card glass shadow" style="max-width: 700px; width: 90%;">
+      <div class="modal-header border-bottom">
+        <h3>Office 365 Email Ingestion Console</h3>
+        <button class="btn-modal-close" id="btn-close-email-sync">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+        <p class="desc-text" style="margin-bottom: 0;">Scanning accounts@bitkraft.co.in shared inbox for new invoice PDFs and parsing them via Gemini AI into Zoho Books...</p>
+        
+        <div class="console-output code-font" id="email-sync-terminal-output" style="height: 350px; overflow-y: auto; background: rgba(0, 0, 0, 0.5); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 12px; line-height: 1.6; white-space: pre-wrap; font-family: monospace; color: #a4efc2; display: flex; flex-direction: column; gap: 4px;">
+          <!-- Real-time log stream will go here -->
+        </div>
+      </div>
+      <div class="modal-footer border-top text-right" style="display: flex; justify-content: space-between; align-items: center;">
+        <span id="email-sync-status-spinner" class="pulse-dot green" style="width: 10px; height: 10px;"></span>
+        <button type="button" class="btn btn-secondary" id="btn-close-email-sync-footer" disabled>Close Console</button>
       </div>
     </div>
   </div>
