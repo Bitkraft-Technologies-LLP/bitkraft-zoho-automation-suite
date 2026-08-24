@@ -125,6 +125,8 @@ export async function parseInvoiceWithAI(
     - bill_number (Invoice/Bill number)
     - date (YYYY-MM-DD)
     - due_date (YYYY-MM-DD, if missing assume 30 days from date)
+    - currency_code (Standard ISO 3-letter currency code, e.g. USD, INR, EUR, GBP. Default to INR if not clear from symbol or text)
+    
     
     Processing instructions:
     IDENTIFY THE SENDER: Look for the company logo or name at the top or labeled as "From". 

@@ -301,6 +301,7 @@ body {
   margin-bottom: 20px;
 }
 
+.cols-4 { grid-template-columns: repeat(4, 1fr); }
 .cols-3 { grid-template-columns: repeat(3, 1fr); }
 .cols-2 { grid-template-columns: repeat(2, 1fr); }
 .col-span-2 { grid-column: span 2; }
@@ -876,8 +877,9 @@ body {
   gap: 14px;
 }
 
-.form-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.form-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
 .form-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.form-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
 
 .form-group {
   display: flex;

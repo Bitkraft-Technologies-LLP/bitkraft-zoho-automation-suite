@@ -2,6 +2,7 @@ import axios from "axios";
 import dotenv from "dotenv";
 import FormData from "form-data";
 import fs from "fs";
+import path from "path";
 
 dotenv.config();
 
@@ -45,8 +46,24 @@ export class ZohoClient {
     }
   }
 
+  private tokenCachePath = path.join(process.cwd(), ".zoho_token_cache.json");
+
   public async getAccessToken(): Promise<string> {
     if (this.accessToken) return this.accessToken;
+
+    // Try reading from file cache
+    try {
+      if (fs.existsSync(this.tokenCachePath)) {
+        const cacheData = JSON.parse(fs.readFileSync(this.tokenCachePath, "utf8"));
+        // Token is valid for 1 hour. Check if it's less than 50 minutes old.
+        if (cacheData.accessToken && Date.now() - cacheData.cachedAt < 50 * 60 * 1000) {
+          this.accessToken = cacheData.accessToken;
+          return this.accessToken!;
+        }
+      }
+    } catch (err: any) {
+      console.warn("Failed to read token cache file:", err.message);
+    }
 
     if (Date.now() - this.lastTokenErrorTime < 2 * 60 * 1000) {
       throw new Error("Zoho Authentication Failed: Cooldown active to prevent rate-limit spam.");
@@ -70,6 +87,20 @@ export class ZohoClient {
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
         });
         this.accessToken = response.data.access_token;
+
+        // Write to file cache
+        try {
+          fs.writeFileSync(
+            this.tokenCachePath,
+            JSON.stringify({
+              accessToken: this.accessToken,
+              cachedAt: Date.now()
+            }, null, 2),
+            "utf8"
+          );
+        } catch (err: any) {
+          console.warn("Failed to write token cache file:", err.message);
+        }
 
         // Token expires in 1 hour usually, we'll just clear it after 55 mins
         setTimeout(
@@ -177,6 +208,28 @@ export class ZohoClient {
       console.error(
         "Failed to create vendor in Zoho:",
          error.response?.data || error.message,
+      );
+      throw error;
+    }
+  }
+
+  async updateVendor(vendorId: string, vendorData: any) {
+    const token = await this.getAccessToken();
+    const url = `https://www.zohoapis.${this.region}/books/v3/contacts/${vendorId}?organization_id=${this.orgId}`;
+    
+    try {
+      const response = await axios.put(url, vendorData, {
+        headers: {
+          Authorization: `Zoho-oauthtoken ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      this.clearVendorsCache();
+      return response.data.contact;
+    } catch (error: any) {
+      console.error(
+        `Failed to update vendor ${vendorId} in Zoho:`,
+        error.response?.data || error.message,
       );
       throw error;
     }

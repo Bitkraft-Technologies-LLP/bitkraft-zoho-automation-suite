@@ -124,17 +124,31 @@ export async function processInvoice(filePath: string, zoho: ZohoClient, orgGst:
               notes += `\nBank Details:\nAccount: ${b.account_number || 'N/A'}\nIFSC: ${b.ifsc_code || 'N/A'}\nBank: ${b.bank_name || 'N/A'}`;
           }
           
+          // Determine GST Treatment
+          const country = billingAddress.country;
+          const isOverseas = (country && country.toLowerCase() !== 'india' && country.toLowerCase() !== 'in') ||
+                             (billData.vendor_gst && billData.vendor_gst.startsWith('99'));
+          let gstTreatment = "business_none";
+          if (isOverseas) {
+            gstTreatment = "overseas";
+          } else if (billData.vendor_gst) {
+            gstTreatment = "business_gst";
+          }
+          
           // Complete Payload
           const newVendorData: any = {
             contact_name: billData.vendor_name,
             company_name: billData.vendor_name,
             gst_no: billData.vendor_gst,
-            gst_treatment: billData.vendor_gst ? "business_gst" : "business_none",
+            gst_treatment: gstTreatment,
             pan_no: billData.vendor_pan || "",
             billing_address: billingAddress,
             contact_persons: contactPersons,
             notes: notes.trim()
           };
+          if (billData.currency_code) {
+            newVendorData.currency_code = billData.currency_code.toUpperCase();
+          }
 
           const createdVendor = await zoho.createVendor(newVendorData);
           console.log(`✅ Vendor created successfully: ${createdVendor.contact_name} (ID: ${createdVendor.contact_id})`);
@@ -188,19 +202,31 @@ export async function processInvoice(filePath: string, zoho: ZohoClient, orgGst:
         const { tax_id, tax_exemption_code, tax_exemption_id, ...itemWithoutTax } = item;
         return itemWithoutTax;
       }
+      // If vendor is overseas (import of services), map tax_id to reverse_charge_tax_id
+      if (gstTreatment === "overseas" && item.tax_id) {
+        return {
+          ...item,
+          reverse_charge_tax_id: item.tax_id
+        };
+      }
       return item;
     });
 
-        // Prepare final payload for Zoho
+    // Prepare final payload for Zoho
     const finalBillData: any = {
       vendor_id: vendor.contact_id || vendor.vendor_id,
       bill_number: billData.bill_number,
       date: billData.date,
       due_date: billData.due_date,
       line_items: processedLineItems,
-      is_reverse_charge_applied: false,
+      is_reverse_charge_applied: gstTreatment === "overseas",
       status: 'draft'
     };
+
+    if (billData.currency_code && billData.currency_code.toUpperCase() !== "INR") {
+      finalBillData.currency_code = billData.currency_code.toUpperCase();
+      finalBillData.exchange_rate = getExchangeRate(billData.currency_code);
+    }
 
     // TDS Deduction Logic
     if (fullVendor?.tds_tax_id && fullVendor?.tds_tax_percentage) {
@@ -384,4 +410,30 @@ async function main() {
 
 if (require.main === module) {
   main();
+}
+
+function getExchangeRate(currencyCode: string): number {
+  if (!currencyCode || currencyCode.toUpperCase() === "INR") {
+    return 1.0;
+  }
+  try {
+    const ratesPath = path.resolve(process.cwd(), "icegate_rates.json");
+    if (fs.existsSync(ratesPath)) {
+      const data = JSON.parse(fs.readFileSync(ratesPath, "utf8"));
+      const detail = data.currencyDetail?.find(
+        (c: any) => c.currencyCode?.toUpperCase() === currencyCode.toUpperCase()
+      );
+      if (detail && detail.cbicImport) {
+        return parseFloat(detail.cbicImport);
+      }
+    }
+  } catch (err: any) {
+    console.warn("⚠️ Failed to load exchange rate from icegate_rates.json:", err.message);
+  }
+  
+  // Fallback defaults
+  if (currencyCode.toUpperCase() === "USD") return 83.5;
+  if (currencyCode.toUpperCase() === "EUR") return 91.0;
+  if (currencyCode.toUpperCase() === "GBP") return 106.0;
+  return 1.0;
 }

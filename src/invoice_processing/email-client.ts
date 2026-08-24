@@ -69,7 +69,6 @@ export class EmailClient {
         params: {
           $filter: "isRead eq false and hasAttachments eq true",
           $select: "id,subject,from,receivedDateTime,hasAttachments",
-          $orderby: "receivedDateTime asc",
           $top: 20
         }
       });

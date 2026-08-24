@@ -19,7 +19,7 @@ _See the [Case Study Package Guide](./Zoho%20Automation%20Case%20Study/case_stud
 
 ### 📄 Invoice Processing
 
-- 🤖 **AI-Powered Invoice Parsing**: Automatically extracts vendor details, line items, taxes, and amounts from PDF invoices using Google Gemini AI
+- 🤖 **AI-Powered Invoice Parsing**: Automatically extracts vendor details, line items, taxes, amounts, and currency from PDF invoices using Google Gemini AI
 - 📄 **Multimodal Support**: Handles both text-based and image-based (scanned) invoices
 - 🔍 **Smart Vendor Matching**: Matches vendors by GST number or name from your Zoho Books database
 - ✨ **Interactive Vendor Creation**: If a vendor is not found, the system prompts you to create it automatically with comprehensive details:
@@ -30,9 +30,13 @@ _See the [Case Study Package Guide](./Zoho%20Automation%20Case%20Study/case_stud
   - Bank Details (Account Number, IFSC, Bank Name) - stored in notes
 - 💰 **TDS Automation**: Automatically applies TDS deductions based on vendor settings
 - 📊 **State-Aware Tax Mapping**: Intelligently selects between GST and IGST based on transaction location
+- 🌍 **Multi-Currency Support**: Detects invoice currency (USD, EUR, GBP, AUD, SGD, AED, INR) and automatically maps the correct ICEGATE CBIC exchange rate into Zoho Bills
+- 🔄 **Reverse Charge Mechanism (RCM)**: Automatically applies RCM tax rules for overseas vendors, preventing Zoho API rejection errors
+- 📧 **Office 365 Shared Inbox Integration**: Monitor a shared inbox (e.g. `accounts@company.com`) for emails with PDF attachments and trigger end-to-end processing automatically
 - 📁 **Batch Processing**: Process multiple invoices at once from a directory
 - 🗄️ **Auto-Archival**: Automatically archives processed invoices to prevent reprocessing
 - ⚡ **Optimized Performance**: Internal caching for Zoho configuration (Accounts, Taxes, Vendors) to minimize API overhead and prevent rate-limiting
+- 🔑 **OAuth Token Caching**: Shares Zoho OAuth tokens across processes via `.zoho_token_cache.json` to avoid token refresh rate-limits
 - 🛡️ **Built-in Resilience**: Automated exponential backoff retry logic for AI extraction to handle transient service spikes gracefully
 
 ### 💱 Currency Exchange Rate Automation
@@ -62,6 +66,8 @@ _See the [Case Study Package Guide](./Zoho%20Automation%20Case%20Study/case_stud
 
 - 🎨 **Harmonious Premium UI**: Single Page Application designed around an elegant Dark HSL Slate aesthetic with glowing colors, custom animations, and glassmorphic card modules
 - 📄 **Split-Screen AI Reviewer**: Visual drag-and-drop zone with XHR upload progress bars, side-by-side split screen showing a scrollable PDF viewer on the left and a live-filled form editor on the right (linked to dynamic Zoho expense accounts & tax codes)
+- 💱 **Dynamic Currency Controls**: The review form currency field is fully editable — changing the currency code live-updates all symbols (`₹`→`$`→`€`), column headers, subtotals, TDS, and grand total with per-locale number formatting
+- 📧 **One-Click Email Sync**: Trigger a live scan of the Office 365 shared inbox from the dashboard; real-time processing logs are streamed directly to the terminal console via SSE
 - 💱 **Real-Time Terminal Console**: Server-Sent Events (SSE) log stream that pipes raw crawler logs straight into a beautiful terminal console window on the dashboard
 - 🏦 **One-Click Payments Hub**: Single-button trigger to scan all unpaid bills, compute Kotak advices, and download generated XLSX/CSV payment files instantly to your browser
 - ⚙️ **Visual Environment Configurator**: Configure directories, advice texts, target currencies, and Gemini parameters visually without touching raw text `.env` configurations
@@ -232,16 +238,18 @@ All paths and formats are configurable via `.env`:
 
 ## How It Works
 
-1. **Invoice Upload**: Place PDF invoices in the `invoices` directory
-2. **AI Extraction**: Gemini AI extracts vendor details, amounts, taxes, and line items
+1. **Invoice Upload**: Upload PDFs via the dashboard drag-drop zone, CLI, or automatic Office 365 email sync
+2. **AI Extraction**: Gemini AI extracts vendor details, amounts, taxes, line items, and **currency code**
 3. **Smart Mapping**:
    - Matches vendor by GST or name
    - Maps line items to appropriate expense accounts
-   - Applies correct tax IDs (GST/IGST) based on location
+   - Applies correct tax IDs (GST/IGST/RCM) based on vendor GST treatment and location
    - Applies TDS if configured for the vendor
-4. **Draft Creation**: Creates a draft bill in Zoho Books with the original PDF attached
-5. **Archival**: Moves processed invoice to archive folder
-6. **Payment Files**: Generate bank-ready payment files for all unpaid bills
+   - Looks up today's ICEGATE CBIC exchange rate for the detected currency
+4. **Review & Edit**: Dashboard presents a fully editable form — override any field including currency, rates, and accounts before approving
+5. **Draft Creation**: Approving creates a draft bill in Zoho Books with the correct currency, exchange rate, and original PDF attached
+6. **Archival**: Moves processed invoice to archive folder
+7. **Payment Files**: Generate bank-ready payment files for all unpaid bills
 
 ## Project Structure
 
@@ -290,7 +298,7 @@ All paths and formats are configurable via `.env`:
 
 ### "Vendor not found"
 
-- The system will now **automatically prompt** you to create the vendor if not found
+- The system will **automatically prompt** you to create the vendor if not found
 - Review the extracted details (Name, GST, PAN, Email, Phone, Address) before confirming
 - Type `y` to create the vendor automatically, or `n` to skip
 - Bank details are saved in the vendor's notes field for reference
@@ -300,11 +308,32 @@ All paths and formats are configurable via `.env`:
 - Verify TDS settings are configured in the vendor's Zoho Books profile
 - Check `tds_tax_id` and `tds_tax_percentage` fields
 
+### Zoho Error 71512 (RCM)
+
+- This occurs when a line-item tax is passed for an overseas vendor without using the `reverse_charge_tax_id` field
+- The suite automatically handles this by detecting `gst_treatment: "overseas"` and routing taxes through RCM
+
+### Currency Showing Incorrectly in Dashboard
+
+- The currency field in the review form is fully editable — type the correct ISO code (e.g. `USD`, `EUR`) and all symbols, headers, and totals update instantly
+- The currency is also auto-populated from the AI extraction; verify the source PDF clearly states the currency
+
+### Vendor Currency Mismatch
+
+- If a vendor's base currency in Zoho Books doesn't match the invoice currency, you may need to update it in Zoho Books first
+- You can use the `updateVendor()` method in `zoho-client.ts` or update manually via the Zoho Books UI (Contacts → Edit → Currency)
+- **Note**: Zoho Books does not allow changing a contact's base currency if it has recorded transactions. Delete draft bills first.
+
 ### AI Extraction Issues
 
 - For scanned/image invoices, ensure they are clear and readable
 - Try switching to a different Gemini model via `GEMINI_MODEL` in `.env`
 - Use `--dry-run` to debug extraction issues
+
+### Long Attachment Filename Error (Zoho Error Code 15)
+
+- Zoho Books rejects attachments with filenames over 100 characters
+- The email processor automatically shortens filenames using an MD5 hash prefix, staying well below Zoho's limit
 
 ## Security
 

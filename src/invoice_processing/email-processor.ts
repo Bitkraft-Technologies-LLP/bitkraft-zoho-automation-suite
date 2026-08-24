@@ -160,7 +160,13 @@ export async function runEmailSync(zoho: ZohoClient, options: { dryRun: boolean 
           continue;
         }
 
-        const safeFileName = `${messageId}_${pdf.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+        const crypto = require("crypto");
+        const messageHash = crypto.createHash("md5").update(messageId).digest("hex");
+        const cleanPdfName = pdf.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+        const maxPdfNameLength = 100 - (messageHash.length + 1) - 10; // extra safety buffer
+        const pdfBase = path.basename(cleanPdfName, path.extname(cleanPdfName)).slice(0, maxPdfNameLength);
+        const pdfExt = path.extname(cleanPdfName);
+        const safeFileName = `${messageHash}_${pdfBase}${pdfExt}`;
         const tempFilePath = path.join(tempDir, safeFileName);
         
         try {

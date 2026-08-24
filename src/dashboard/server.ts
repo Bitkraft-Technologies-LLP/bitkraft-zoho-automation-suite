@@ -395,6 +395,7 @@ app.post("/api/invoices/extract", async (req, res) => {
             city: billData.vendor_address?.city || "",
             state: billData.vendor_address?.state || "",
             zip: billData.vendor_address?.zip || "",
+            country: (typeof billData.vendor_address !== "string" && billData.vendor_address?.country) || "",
             bankDetails: billData.vendor_bank_details || null,
           }
         }
@@ -423,6 +424,39 @@ app.get("/api/invoices/email-sync", async (req, res) => {
 
   res.write("data: Connecting to Microsoft Graph API...\n\n");
 
+  const originalLog = console.log;
+  const originalError = console.error;
+  const originalWarn = console.warn;
+
+  const formatArg = (arg: any) => {
+    if (typeof arg === "object") {
+      try {
+        return JSON.stringify(arg, null, 2);
+      } catch {
+        return String(arg);
+      }
+    }
+    return String(arg);
+  };
+
+  console.log = function (...args: any[]) {
+    const msg = args.map(formatArg).join(" ");
+    originalLog.apply(console, args);
+    res.write(`data: ${msg}\n\n`);
+  };
+
+  console.error = function (...args: any[]) {
+    const msg = args.map(formatArg).join(" ");
+    originalError.apply(console, args);
+    res.write(`data: ❌ ERROR: ${msg}\n\n`);
+  };
+
+  console.warn = function (...args: any[]) {
+    const msg = args.map(formatArg).join(" ");
+    originalWarn.apply(console, args);
+    res.write(`data: ⚠️ WARNING: ${msg}\n\n`);
+  };
+
   try {
     const zoho = getZoho();
     
@@ -439,6 +473,9 @@ app.get("/api/invoices/email-sync", async (req, res) => {
     res.write(`data: ERROR: ${error.message}\n\n`);
     res.write("event: end\ndata: \n\n");
   } finally {
+    console.log = originalLog;
+    console.error = originalError;
+    console.warn = originalWarn;
     setSyncLogger(null);
     res.end();
   }
@@ -458,7 +495,7 @@ app.post("/api/invoices/create-vendor", async (req, res) => {
       city: vendorData.city || "",
       state: vendorData.state || "",
       zip: vendorData.zip || "",
-      country: "India",
+      country: vendorData.country || "India",
     };
 
     // Contacts
@@ -479,11 +516,21 @@ app.post("/api/invoices/create-vendor", async (req, res) => {
       notes = `Bank Details:\nAccount: ${b.account_number || "N/A"}\nIFSC: ${b.ifsc_code || "N/A"}\nBank: ${b.bank_name || "N/A"}`;
     }
 
+    const country = billingAddress.country;
+    const isOverseas = (country && country.toLowerCase() !== "india" && country.toLowerCase() !== "in") ||
+                       (vendorData.gst && vendorData.gst.startsWith("99"));
+    let gstTreatment = "business_none";
+    if (isOverseas) {
+      gstTreatment = "overseas";
+    } else if (vendorData.gst) {
+      gstTreatment = "business_gst";
+    }
+
     const newVendorPayload = {
       contact_name: vendorData.name,
       company_name: vendorData.name,
       gst_no: vendorData.gst,
-      gst_treatment: vendorData.gst ? "business_gst" : "business_none",
+      gst_treatment: gstTreatment,
       pan_no: vendorData.pan || "",
       billing_address: billingAddress,
       contact_persons: contactPersons,
@@ -497,7 +544,6 @@ app.post("/api/invoices/create-vendor", async (req, res) => {
     res.status(500).json({ error: error.response?.data?.message || error.message });
   }
 });
-
 // Approve & Push Bill API
 app.post("/api/invoices/approve", async (req, res) => {
   try {
@@ -534,6 +580,13 @@ app.post("/api/invoices/approve", async (req, res) => {
         const { tax_id, ...itemWithoutTax } = item;
         return itemWithoutTax;
       }
+      // If vendor is overseas (import of services), map tax_id to reverse_charge_tax_id
+      if (gstTreatment === "overseas" && item.tax_id) {
+        return {
+          ...item,
+          reverse_charge_tax_id: item.tax_id
+        };
+      }
       return item;
     });
 
@@ -543,9 +596,14 @@ app.post("/api/invoices/approve", async (req, res) => {
       date: billPayload.date,
       due_date: billPayload.due_date,
       line_items: processedLineItems,
-      is_reverse_charge_applied: false,
+      is_reverse_charge_applied: gstTreatment === "overseas",
       status: "draft"
     };
+
+    if (billPayload.currency_code && billPayload.currency_code.toUpperCase() !== "INR") {
+      finalBillData.currency_code = billPayload.currency_code.toUpperCase();
+      finalBillData.exchange_rate = getExchangeRate(billPayload.currency_code);
+    }
 
     // Apply TDS Deduction if configured
     if (fullVendor?.tds_tax_id && fullVendor?.tds_tax_percentage) {
@@ -1324,3 +1382,29 @@ app.listen(PORT, () => {
   console.log(`=============================================================\n`);
   ensureDirectories();
 });
+
+function getExchangeRate(currencyCode: string): number {
+  if (!currencyCode || currencyCode.toUpperCase() === "INR") {
+    return 1.0;
+  }
+  try {
+    const ratesPath = path.resolve(process.cwd(), "icegate_rates.json");
+    if (fs.existsSync(ratesPath)) {
+      const data = JSON.parse(fs.readFileSync(ratesPath, "utf8"));
+      const detail = data.currencyDetail?.find(
+        (c: any) => c.currencyCode?.toUpperCase() === currencyCode.toUpperCase()
+      );
+      if (detail && detail.cbicImport) {
+        return parseFloat(detail.cbicImport);
+      }
+    }
+  } catch (err: any) {
+    console.warn("⚠️ Failed to load exchange rate from icegate_rates.json:", err.message);
+  }
+  
+  // Fallback defaults
+  if (currencyCode.toUpperCase() === "USD") return 83.5;
+  if (currencyCode.toUpperCase() === "EUR") return 91.0;
+  if (currencyCode.toUpperCase() === "GBP") return 106.0;
+  return 1.0;
+}
