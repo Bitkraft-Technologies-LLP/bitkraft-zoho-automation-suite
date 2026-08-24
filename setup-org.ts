@@ -1,4 +1,4 @@
-import { ZohoClient } from './src/zoho/zoho-client';
+import { ZohoClient } from './src/invoice_processing/zoho/zoho-client';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';

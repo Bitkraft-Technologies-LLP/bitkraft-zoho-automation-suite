@@ -1282,3 +1282,57 @@ body {
 }
 
 .text-green { color: var(--color-emerald); }
+
+/* Email Notifications Tab Custom Styles */
+.stat-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px;
+}
+
+.stat-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.stat-number {
+  font-size: 32px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  color: var(--text-white);
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.stat-icon.green {
+  background-color: var(--color-emerald-bg);
+  color: var(--color-emerald);
+}
+
+.stat-icon.amber {
+  background-color: var(--color-amber-bg);
+  color: var(--color-amber);
+}
+
+.stat-icon.red {
+  background-color: var(--color-crimson-bg);
+  color: var(--color-crimson);
+}

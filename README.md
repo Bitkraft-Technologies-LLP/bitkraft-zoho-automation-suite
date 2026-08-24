@@ -51,6 +51,13 @@ _See the [Case Study Package Guide](./Zoho%20Automation%20Case%20Study/case_stud
 - ⚙️ **Configurable Paths**: All input/output directories are customizable via environment variables
 - 📊 **Payment Summaries**: Generates detailed payment summary reports in CSV format
 
+### ✉️ Vendor Payment Email Notifications
+
+- ✉️ **Automated Dispatch**: Automatically sends payment confirmation emails to vendors via the Zoho Books API as soon as a payment is recorded
+- 👁️ **Visual Email Preview**: View and review HTML payment receipts dynamically rendered inside a sandboxed modal directly in the browser
+- 📊 **Audit Trail Logging**: Stores sent status, timestamps, and error messages in a lightweight local JSON database (`data/vendor_payment_notifications.json`) to avoid double notifications
+- 🔄 **Manual Retry/Resend**: Retransmit or manually trigger confirmation emails from the dashboard notifications log
+
 ### 🖥️ Interactive Web Control Center Dashboard
 
 - 🎨 **Harmonious Premium UI**: Single Page Application designed around an elegant Dark HSL Slate aesthetic with glowing colors, custom animations, and glassmorphic card modules
@@ -161,6 +168,18 @@ Options:
 - `--account-id <id>`: Explicitly define the Zoho Bank Account ID to pay through. If not provided, it tries to auto-resolve an account name containing "Kotak" or "5253078611".
 - `--yes` or `-y`: Automatically record exact matches in Zoho Books without interactive confirmation.
 
+### Sync / Audit Payment Notifications (CLI)
+
+```bash
+npx ts-node src/payment_automation/sync-notifications.ts --hours 24
+```
+
+This checks Zoho Books for vendor payments recorded in the last X hours and automatically sends email notifications for any payments that haven't been notified yet.
+
+Options:
+- `--hours <n>` or `-h <n>`: Define lookback window in hours (default: 24).
+- `--dry-run` or `-d`: Safe dry-run to preview pending notifications without dispatching emails.
+
 ### Currency Exchange Rate Automation
 
 #### Manual Run (Latest Rates)
@@ -243,7 +262,11 @@ All paths and formats are configurable via `.env`:
 │   │   └── icegate_rates.json       # Latest fetched rates (auto-generated)
 │   └── payment_automation/
 │       ├── generate-bank-payment.ts # Bank payment file generator
-│       └── generate-payments-csv.ts # Payment summary CSV generator
+│       ├── generate-payments-csv.ts # Payment summary CSV generator
+│       ├── notification-store.ts    # JSON notification database store
+│       ├── notification-service.ts  # Zoho email trigger service
+│       ├── sync-notifications.ts    # CLI batch notification script
+│       └── reconcile-statement.ts   # Reconciliation & payment recorder
 ├── Zoho Automation Case Study/ # Documentation package
 │   ├── zoho_automation_case_study.md
 │   ├── case_study_invoice_processing.md

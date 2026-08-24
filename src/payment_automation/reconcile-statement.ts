@@ -4,6 +4,7 @@ import path from "path";
 import * as XLSX from "xlsx";
 import dotenv from "dotenv";
 import readline from "readline";
+import { NotificationService } from "./notification-service";
 
 dotenv.config();
 
@@ -351,6 +352,17 @@ async function run() {
 
         const result = await zoho.createVendorPayment(payload);
         console.log(`✅ Success: Payment of ₹${m.txn.amount} recorded for Bill ${m.bill.bill_number} (ID: ${result.vendorpayment?.payment_id})`);
+        
+        const paymentId = result.vendorpayment?.payment_id;
+        if (paymentId) {
+          console.log(`   Sending payment confirmation email...`);
+          const record = await NotificationService.sendNotification(zoho, paymentId);
+          if (record.email_sent) {
+            console.log(`   📧 Notification email sent to ${record.recipient_email}`);
+          } else {
+            console.log(`   ⚠️ Failed to send notification: ${record.error_message}`);
+          }
+        }
       } catch (err: any) {
         console.error(`❌ Failed for Bill ${m.bill.bill_number}:`, err.response?.data?.message || err.message);
       }

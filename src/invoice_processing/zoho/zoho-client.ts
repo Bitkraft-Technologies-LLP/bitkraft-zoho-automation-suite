@@ -260,4 +260,50 @@ export class ZohoClient {
       throw error;
     }
   }
+
+  async getVendorPayments(params: any = {}) {
+    const token = await this.getAccessToken();
+    const url = `https://www.zohoapis.${this.region}/books/v3/vendorpayments?organization_id=${this.orgId}`;
+    const response = await axios.get(url, {
+      headers: { Authorization: `Zoho-oauthtoken ${token}` },
+      params: params
+    });
+    return response.data.vendorpayments || [];
+  }
+
+  async getVendorPaymentEmailContent(paymentId: string) {
+    const token = await this.getAccessToken();
+    const url = `https://www.zohoapis.${this.region}/books/v3/vendorpayments/${paymentId}/email?organization_id=${this.orgId}`;
+    const response = await axios.get(url, {
+      headers: { Authorization: `Zoho-oauthtoken ${token}` }
+    });
+    return response.data.email_template || response.data.data || response.data;
+  }
+
+  async sendVendorPaymentEmailViaZoho(paymentId: string, emailData: any) {
+    const token = await this.getAccessToken();
+    const url = `https://www.zohoapis.${this.region}/books/v3/vendorpayments/${paymentId}/email?organization_id=${this.orgId}`;
+    const payload = {
+      send_from_org_email_id: emailData.send_from_org_email_id ?? false,
+      to_mail_ids: emailData.to_mail_ids,
+      subject: emailData.subject,
+      body: emailData.body
+    };
+
+    try {
+      const response = await axios.post(url, payload, {
+        headers: {
+          Authorization: `Zoho-oauthtoken ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error(
+        `Failed to send vendor payment email in Zoho for ID ${paymentId}:`,
+        error.response?.data || error.message,
+      );
+      throw error;
+    }
+  }
 }

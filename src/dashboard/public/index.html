@@ -38,6 +38,9 @@
         <button class="nav-item" data-tab="payments">
           <span class="icon">🏦</span> Bank Payments
         </button>
+        <button class="nav-item" data-tab="notifications">
+          <span class="icon">✉️</span> Notifications
+        </button>
         <button class="nav-item" data-tab="config">
           <span class="icon">⚙️</span> Configuration
         </button>
@@ -643,7 +646,75 @@
           </div>
         </section>
 
-        <!-- 5. CONFIGURATION TAB -->
+        <!-- 5. NOTIFICATIONS TAB -->
+        <section class="tab-panel" id="panel-notifications">
+          <!-- Stats Summary row -->
+          <div class="grid-layout cols-3 mb-2">
+            <div class="card glass stat-card">
+              <div class="stat-content">
+                <span class="stat-label">Total Notified</span>
+                <span class="stat-number" id="notif-count-sent">0</span>
+              </div>
+              <div class="stat-icon green">📧</div>
+            </div>
+            
+            <div class="card glass stat-card">
+              <div class="stat-content">
+                <span class="stat-label">Pending Send</span>
+                <span class="stat-number" id="notif-count-pending">0</span>
+              </div>
+              <div class="stat-icon amber">⏳</div>
+            </div>
+
+            <div class="card glass stat-card">
+              <div class="stat-content">
+                <span class="stat-label">Errors</span>
+                <span class="stat-number" id="notif-count-failed">0</span>
+              </div>
+              <div class="stat-icon red">⚠️</div>
+            </div>
+          </div>
+
+          <!-- Controls and table -->
+          <div class="card glass shadow">
+            <div class="card-header border-bottom flex-row justify-between align-center" style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <h3>Recent Vendor Payments</h3>
+                <p class="subtext">Scan past payments from Zoho Books and verify their email notification statuses.</p>
+              </div>
+              <div style="display: flex; gap: 12px; align-items: center;">
+                <button class="btn btn-secondary" id="btn-refresh-notifications" style="padding: 6px 12px; font-size: 13px;">
+                  🔄 Refresh List
+                </button>
+              </div>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-container">
+                <table class="data-table" id="table-notifications">
+                  <thead>
+                    <tr>
+                      <th>Payment Date</th>
+                      <th>Payment / UTR #</th>
+                      <th>Vendor</th>
+                      <th>Recipient Email</th>
+                      <th>Amount</th>
+                      <th>Notification Status</th>
+                      <th>Sent Time</th>
+                      <th style="text-align: center;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="notifications-tbody">
+                    <tr>
+                      <td colspan="8" class="text-center text-muted" style="padding: 24px;">Loading vendor payment notifications history...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 6. CONFIGURATION TAB -->
         <section class="tab-panel" id="panel-config">
           <div class="card glass shadow max-w-lg">
             <div class="card-header border-bottom">
@@ -812,6 +883,28 @@
           <button type="submit" class="btn btn-primary" id="btn-submit-vendor-modal">💾 Sync & Create Vendor</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- EMAIL PREVIEW MODAL OVERLAY -->
+  <div class="modal-overlay" id="email-preview-modal">
+    <div class="modal-card glass shadow" style="max-width: 800px; width: 90%;">
+      <div class="modal-header border-bottom">
+        <h3>Email Preview</h3>
+        <button class="btn-modal-close" id="btn-close-email-modal">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
+          <div><span style="color: var(--text-muted); font-weight: 500;">To:</span> <strong id="preview-email-to" style="color: var(--text-white);"></strong></div>
+          <div><span style="color: var(--text-muted); font-weight: 500;">Subject:</span> <strong id="preview-email-subject" style="color: var(--text-white);"></strong></div>
+        </div>
+        <div style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: white; height: 450px;">
+          <iframe id="preview-email-iframe" style="width: 100%; height: 100%; border: none; background: white;"></iframe>
+        </div>
+      </div>
+      <div class="modal-footer border-top text-right">
+        <button type="button" class="btn btn-secondary" id="btn-close-email-modal-footer">Close</button>
+      </div>
     </div>
   </div>
 

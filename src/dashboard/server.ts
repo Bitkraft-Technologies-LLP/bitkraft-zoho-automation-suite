@@ -8,6 +8,8 @@ import dotenv from "dotenv";
 import * as XLSX from "xlsx";
 import { ZohoClient } from "../invoice_processing/zoho/zoho-client";
 import { extractTextFromPDF, parseInvoiceWithAI } from "../invoice_processing/parser/pdf-parser";
+import { NotificationStore } from "../payment_automation/notification-store";
+import { NotificationService } from "../payment_automation/notification-service";
 
 // Load environment variables
 dotenv.config();
@@ -1136,11 +1138,28 @@ app.post("/api/payment/reconcile", async (req, res) => {
         };
 
         const result = await zoho.createVendorPayment(payload);
+        const paymentId = result.vendorpayment?.payment_id;
+        let emailSent = false;
+        let recipientEmail = "";
+
+        if (paymentId) {
+          try {
+            console.log(`[Reconcile] Triggering automatic email notification for payment ID: ${paymentId}`);
+            const notif = await NotificationService.sendNotification(zoho, paymentId);
+            emailSent = notif.email_sent;
+            recipientEmail = notif.recipient_email;
+          } catch (e: any) {
+            console.error(`[Reconcile] Notification trigger failed:`, e.message);
+          }
+        }
+
         results.push({
           billId,
           success: true,
-          paymentId: result.vendorpayment?.payment_id || "N/A",
-          message: "Payment recorded successfully"
+          paymentId: paymentId || "N/A",
+          message: "Payment recorded successfully",
+          emailSent,
+          recipientEmail
         });
       } catch (err: any) {
         console.error(`Reconciliation failed for bill ID ${billId}:`, err.response?.data || err.message);
@@ -1155,6 +1174,110 @@ app.post("/api/payment/reconcile", async (req, res) => {
     res.json({ success: true, results });
   } catch (error: any) {
     console.error("Reconciliation execution error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// 6. VENDOR PAYMENT EMAIL NOTIFICATIONS API
+// ============================================================================
+
+app.get("/api/payment-notifications", async (req, res) => {
+  try {
+    const { date_start, date_end } = req.query;
+    const zoho = getZoho();
+
+    let start = date_start as string;
+    if (!start) {
+      const d = new Date();
+      d.setDate(d.getDate() - 30);
+      start = d.toISOString().split("T")[0]!;
+    }
+
+    let end = date_end as string;
+    if (!end) {
+      end = new Date().toISOString().split("T")[0]!;
+    }
+
+    const payments = await zoho.getVendorPayments({
+      date_start: start,
+      date_end: end
+    });
+
+    const store = NotificationStore.getAll();
+
+    const records = payments.map((p: any) => {
+      const stored = store[p.payment_id] || null;
+      return {
+        payment_id: p.payment_id,
+        payment_number: p.payment_number || p.reference_number || "N/A",
+        vendor_name: p.vendor_name,
+        vendor_id: p.vendor_id,
+        amount: p.amount,
+        date: p.date,
+        reference_number: p.reference_number || "",
+        email_sent: stored ? stored.email_sent : false,
+        sent_at: stored?.sent_at || null,
+        recipient_email: stored ? stored.recipient_email : (p.vendor_email || "N/A"),
+        subject: stored?.subject || "",
+        error_message: stored?.error_message || null
+      };
+    });
+
+    res.json({ success: true, records, schedulerActive: false });
+  } catch (error: any) {
+    console.error("Failed to fetch payment notifications:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/payment-notifications/send", async (req, res) => {
+  try {
+    const { paymentId } = req.body;
+    if (!paymentId) {
+      return res.status(400).json({ error: "Missing paymentId parameter" });
+    }
+
+    const zoho = getZoho();
+    console.log(`[Dashboard] Manual email notification triggered for payment ID: ${paymentId}`);
+    const record = await NotificationService.sendNotification(zoho, paymentId);
+    
+    res.json({ success: record.email_sent, record });
+  } catch (error: any) {
+    console.error("Manual send error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/payment-notifications/:paymentId/preview", async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    if (!paymentId) {
+      return res.status(400).json({ error: "Missing paymentId parameter" });
+    }
+
+    const zoho = getZoho();
+    console.log(`[Dashboard] Fetching email preview for payment ID: ${paymentId}`);
+    const template = await zoho.getVendorPaymentEmailContent(paymentId);
+    
+    // Extract recipient emails
+    let toMailIds: string[] = [];
+    if (Array.isArray(template.to_mail_ids)) {
+      toMailIds = template.to_mail_ids;
+    } else if (Array.isArray(template.to_contacts)) {
+      const selected = template.to_contacts.filter((c: any) => c.selected);
+      const contactsToUse = selected.length > 0 ? selected : template.to_contacts;
+      toMailIds = contactsToUse.map((c: any) => c.email).filter(Boolean);
+    }
+    
+    res.json({
+      success: true,
+      subject: template.subject || "",
+      body: template.body || "",
+      to_mail_ids: toMailIds
+    });
+  } catch (error: any) {
+    console.error("Preview error:", error);
     res.status(500).json({ error: error.message });
   }
 });
