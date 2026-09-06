@@ -2,9 +2,9 @@
 
 A personal Google Apps Script tool for tracking Hamza's (Grade 5, IB curriculum)
 test performance across Maths, English, Hindi and Marathi: generate papers
-from a question bank, grade photographed answer sheets with Claude's vision
-API, keep growing the bank with AI-drafted questions, and track progress by
-strand over time. Runs entirely on Google's free stack.
+from a question bank, grade photographed answer sheets with the Gemini API's
+vision support, keep growing the bank with AI-drafted questions, and track
+progress by strand over time. Runs entirely on Google's free stack.
 
 Unit of Inquiry and Art aren't covered — they're inquiry/craft-based rather
 than question-and-answer written tests, so there's nothing to generate a
@@ -17,8 +17,10 @@ orally at school and aren't testable from a photographed answer sheet.
 
 - Google Apps Script (V8 runtime), bound to a Google Sheet.
 - Plain HTML/CSS/vanilla JS web app (`HtmlService` + `google.script.run`), no build step.
-- Anthropic API (`claude-sonnet-5`) via `UrlFetchApp` for vision-based grading
+- Gemini API (`gemini-3.8-flash`) via `UrlFetchApp` for vision-based grading
   and for drafting new questions (text-only) as the bank needs to grow.
+  Chosen over Anthropic's API so the key comes from the same Google account
+  already used for everything else here, with Google AI Studio's free tier.
 - Chart.js (via CDN) on `<canvas>` for the Progress dashboard — chosen over the
   Apps Script `Charts` service because it renders client-side, is more
   responsive on a ~380px phone screen, and doesn't need a server round trip
@@ -32,7 +34,8 @@ hamza-edtrack/
   Code.gs              — doGet routing, sheet bootstrap, shared helpers, Config
   QuestionBank.gs       — seed data (from seed/questions.json) + CRUD
   PaperGenerator.gs     — generatePaper(): sampling + Google Docs creation
-  Grading.gs            — Anthropic vision grading + Results persistence
+  AI.gs                 — shared Gemini API access (endpoint, auth, response parsing)
+  Grading.gs            — vision grading via AI.gs + Results persistence
   Dashboard.gs          — progress aggregation for the Progress page
   QuestionDrafter.gs    — AI question drafting (syllabus-topic-driven) + save-to-bank
   Index.html            — nav shell
@@ -71,9 +74,12 @@ paper for either.
 
 ## One-time setup
 
-1. **Set the Anthropic API key** (never committed to the repo):
-   Apps Script editor → ⚙️ **Project Settings** → **Script Properties** →
-   **Add script property** → name `ANTHROPIC_API_KEY`, value = your key.
+1. **Set the Gemini API key** (never committed to the repo): get a free key from
+   [Google AI Studio](https://aistudio.google.com/apikey) — sign in with the
+   same Google account this Sheet/script belongs to, click **Create API key**,
+   and copy it. Then in the Apps Script editor → ⚙️ **Project Settings** →
+   **Script Properties** → **Add script property** → name `GEMINI_API_KEY`,
+   value = the key you copied.
 
 2. **Seed the question bank**: in the Apps Script editor, select the
    `seedQuestionBank` function and click Run once. Check **View → Logs** for
@@ -94,7 +100,7 @@ single-student tool; if that's ever a concern, tighten `webapp.access` in
 ## Notes on grading
 
 - Photos are base64-encoded in the browser, sent to `gradeSubmission()`, used
-  for exactly one Anthropic API call, and then discarded — they are never
+  for exactly one Gemini API call, and then discarded — they are never
   written to the Sheet or Drive.
 - The AI's first pass is never final: the Grade page shows an editable marks
   column before anything is saved. Saving only flips `teacher_override` to

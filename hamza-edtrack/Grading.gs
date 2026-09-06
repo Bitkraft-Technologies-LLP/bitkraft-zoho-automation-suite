@@ -1,15 +1,8 @@
 /**
- * Grading.gs — sends photographed answer sheets to the Anthropic API for
- * vision-based grading against the QuestionBank's answer/marking notes, then
- * persists the (editable) results.
- *
- * Model id confirmed against https://platform.claude.com/docs/en/models/overview
- * on 2026-09-06. Claude model ids change over time — re-check that page if
- * grading calls start failing with a "model not found" error.
+ * Grading.gs — sends photographed answer sheets to the Gemini API (see AI.gs)
+ * for vision-based grading against the QuestionBank's answer/marking notes,
+ * then persists the (editable) results.
  */
-
-var CLAUDE_MODEL = 'claude-sonnet-5';
-var ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
 var GRADING_INSTRUCTION = 'You are grading a Grade 5 IB-curriculum test paper. You will see photos of a ' +
   "student's handwritten answers and the official answer key with marking notes. For each question, award " +
@@ -33,7 +26,7 @@ function gradeSubmission(paperId, student, images) {
   getQuestionsByIds_(questionIds).forEach(function (q) { questionsById[q.id] = q; });
   var orderedQuestions = questionIds.map(function (id) { return questionsById[id]; }).filter(Boolean);
 
-  var aiResults = callAnthropicForGrading_(orderedQuestions, images);
+  var aiResults = callGeminiForGrading_(orderedQuestions, images);
 
   var today = todayString_();
   var resultsSheet = getSheet_(SHEET_RESULTS);
@@ -74,9 +67,7 @@ function clampMarks_(value, max) {
   return value > max ? max : value;
 }
 
-function callAnthropicForGrading_(questions, images) {
-  var apiKey = getAnthropicApiKey_();
-
+function callGeminiForGrading_(questions, images) {
   var bundle = questions.map(function (q) {
     return {
       question_id: q.id,
@@ -87,71 +78,17 @@ function callAnthropicForGrading_(questions, images) {
     };
   });
 
-  var content = images.map(function (img) {
-    return { type: 'image', source: { type: 'base64', media_type: img.mimeType, data: img.data } };
+  var parts = images.map(function (img) {
+    return { inlineData: { mimeType: img.mimeType, data: img.data } };
   });
-  content.push({
-    type: 'text',
+  parts.push({
     text: 'Questions, correct answers and marking notes for this paper (JSON):\n' + JSON.stringify(bundle) +
       '\n\nRespond with a JSON array only, in this exact schema: ' +
       '[{"question_id": "...", "marks_awarded": 0, "max_marks": 0, "extracted_answer": "...", "reasoning": "..."}]'
   });
 
-  var payload = {
-    model: CLAUDE_MODEL,
-    max_tokens: 8000,
-    system: GRADING_INSTRUCTION,
-    messages: [{ role: 'user', content: content }]
-  };
-
-  var response = UrlFetchApp.fetch(ANTHROPIC_API_URL, {
-    method: 'post',
-    contentType: 'application/json',
-    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-    payload: JSON.stringify(payload),
-    muteHttpExceptions: true
-  });
-
-  var status = response.getResponseCode();
-  if (status !== 200) {
-    throw new Error('Anthropic API error (' + status + '): ' + response.getContentText().substring(0, 500));
-  }
-
-  var body = JSON.parse(response.getContentText());
-  var text = (body.content || []).map(function (block) { return block.text || ''; }).join('');
+  var text = callGemini_(GRADING_INSTRUCTION, parts);
   return extractJsonArray_(text);
-}
-
-/** Strips code fences / stray prose defensively before parsing the model's JSON array response. */
-function extractJsonArray_(text) {
-  var cleaned = String(text).trim()
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/```\s*$/i, '')
-    .trim();
-
-  try {
-    return JSON.parse(cleaned);
-  } catch (e) {
-    var start = cleaned.indexOf('[');
-    var end = cleaned.lastIndexOf(']');
-    if (start !== -1 && end !== -1 && end > start) {
-      try {
-        return JSON.parse(cleaned.substring(start, end + 1));
-      } catch (e2) {
-        // fall through to error below
-      }
-    }
-    throw new Error('Could not parse grading response as JSON: ' + cleaned.substring(0, 300));
-  }
-}
-
-function getAnthropicApiKey_() {
-  var key = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
-  if (!key) {
-    throw new Error('ANTHROPIC_API_KEY is not set. In the Apps Script editor: Project Settings → Script ' +
-      'Properties → Add property, name it ANTHROPIC_API_KEY, and paste your key.');
-  }
-  return key;
 }
 
 /**

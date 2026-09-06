@@ -1,5 +1,5 @@
 /**
- * QuestionDrafter.gs — drafts new QuestionBank rows with the Anthropic API so
+ * QuestionDrafter.gs — drafts new QuestionBank rows with the Gemini API (see AI.gs) so
  * the bank keeps growing (avoiding repeats) instead of being frozen at the
  * initial 51 seeded questions. Draft output is never saved automatically —
  * the Draft page shows it for review/edits first, same pattern as grading.
@@ -108,29 +108,7 @@ function draftQuestions(config) {
     '\n\nRespond with a JSON array only, in this exact schema: ' +
     '[{"question_text": "...", "marks": 0, "answer_text": "...", "marking_notes": "...", "sub_skill": "...", "difficulty": ' + difficulty + '}]';
 
-  var apiKey = getAnthropicApiKey_();
-  var payload = {
-    model: CLAUDE_MODEL,
-    max_tokens: 4000,
-    system: DRAFT_SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: userPrompt }]
-  };
-
-  var response = UrlFetchApp.fetch(ANTHROPIC_API_URL, {
-    method: 'post',
-    contentType: 'application/json',
-    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-    payload: JSON.stringify(payload),
-    muteHttpExceptions: true
-  });
-
-  var status = response.getResponseCode();
-  if (status !== 200) {
-    throw new Error('Anthropic API error (' + status + '): ' + response.getContentText().substring(0, 500));
-  }
-
-  var body = JSON.parse(response.getContentText());
-  var text = (body.content || []).map(function (block) { return block.text || ''; }).join('');
+  var text = callGemini_(DRAFT_SYSTEM_PROMPT, [{ text: userPrompt }]);
   var drafted = extractJsonArray_(text);
 
   return drafted.map(function (q) {
