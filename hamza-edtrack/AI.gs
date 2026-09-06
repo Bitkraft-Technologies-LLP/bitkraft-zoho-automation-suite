@@ -46,7 +46,7 @@ function callGemini_(systemInstruction, parts) {
   // a few times with backoff before surfacing an error, since a photo
   // grading request is expensive for the user to have to manually resubmit.
   var retryableStatuses = [429, 500, 503, 504];
-  var delays = [2000, 5000, 10000];
+  var delays = [3000, 8000, 15000, 30000];
   var response, status, lastErrorText;
 
   for (var attempt = 0; attempt <= delays.length; attempt++) {
