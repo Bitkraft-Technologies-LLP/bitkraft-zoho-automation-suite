@@ -86,7 +86,13 @@ paper for either.
    the per-subject/strand count summary, and check the `QuestionBank` tab in
    the Sheet to confirm the rows landed.
 
-3. **Deploy the web app** (see below) and open the `/exec` URL it prints.
+3. **Register the real Term 1 Maths/English papers**: select `seedOriginalPapers`
+   and click Run once. This adds `MATH-TERM1-ORIGINAL` and `ENG-TERM1-ORIGINAL`
+   to the `Papers` tab (all seeded questions, in their original order, with
+   real paper + answer-key Docs generated) so Hamza's actual already-completed
+   Term 1 papers can be picked on the **Grade a Paper** page.
+
+4. **Deploy the web app** (see below) and open the `/exec` URL it prints.
 
 ## Sharing
 
@@ -105,3 +111,41 @@ single-student tool; if that's ever a concern, tighten `webapp.access` in
 - The AI's first pass is never final: the Grade page shows an editable marks
   column before anything is saved. Saving only flips `teacher_override` to
   `true` on rows whose mark was actually changed.
+- **Past Submissions** on the Grade page lists every graded attempt and lets
+  you re-open (and still correct) its breakdown later — it's the same
+  editable table, just loaded from saved `Results` rows instead of a fresh
+  grading call.
+- To grade a sheet a student photographed and sent over WhatsApp: save their
+  photo(s) to your camera roll, then on the file picker choose "Photo
+  Library" instead of the camera. There's no automatic way to pull images
+  out of WhatsApp — it has no public API for that without registering as a
+  WhatsApp Business API app (Meta business verification, a persistent
+  webhook receiver, phone number registration), which is out of scope for a
+  personal Apps Script tool. This manual hand-off is the realistic path.
+
+## Sharing a paper
+
+Every row in **Previously Generated Papers** (Generate page) has a **Share**
+link that opens `wa.me` with a pre-filled message containing the paper's Doc
+link — pick the chat to send it to and it goes straight into WhatsApp. Only
+the paper link is shared, never the answer key.
+
+## Generating multiple papers at once
+
+The Generate page has a "How many papers" field (1–10) for producing several
+independent practice papers in one request — useful for extra practice
+without repeating the same 60-mark test. Each one samples the bank
+independently; because `times_used`/`last_used_date` update after every
+paper, later papers in the same batch naturally favour questions the earlier
+ones didn't use.
+
+## On making this a PWA
+
+A true installable PWA (a `manifest.json`, a service worker, offline
+caching) isn't achievable on Apps Script: Google serves `HtmlService` pages
+through a sandboxed iframe on a `googleusercontent.com` origin that it fully
+controls, so there's no way to register a service worker or serve a
+manifest from your own origin. The practical equivalent that *does* work:
+bookmark the `/exec` URL and use your phone browser's "Add to Home Screen" —
+it launches full-screen without browser chrome, which is most of what a PWA
+would buy here anyway.

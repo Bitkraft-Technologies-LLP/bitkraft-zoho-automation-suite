@@ -14,6 +14,10 @@
     <label for="totalMarks">Total Marks</label>
     <input type="number" id="totalMarks" value="60" min="10" step="1" />
 
+    <label for="paperCount">How many papers</label>
+    <input type="number" id="paperCount" value="1" min="1" max="10" />
+    <div class="muted" style="margin-top:2px;">Generates that many independent practice papers in one go (e.g. for repeat practice).</div>
+
     <label>Strand Mix</label>
     <div class="radio-group">
       <label><input type="radio" name="mode" value="auto" checked /> Auto (syllabus weight)</label>
@@ -27,37 +31,45 @@
   </div>
 
   <div id="result" style="display:none;">
-    <h2>Paper ready</h2>
-    <div class="card">
-      <div id="resultMeta" class="muted"></div>
-      <a class="doc-link" id="paperLink" href="#" target="_blank">Open Paper</a>
-      <a class="doc-link" id="keyLink" href="#" target="_blank">Open Answer Key</a>
-      <table style="margin-top:14px;">
-        <thead><tr><th>Strand</th><th>Target</th><th>Achieved</th><th>Qs</th></tr></thead>
-        <tbody id="breakdownBody"></tbody>
-      </table>
-    </div>
+    <h2>Paper(s) ready</h2>
+    <div id="resultList"></div>
+  </div>
+
+  <h2>Previously Generated Papers</h2>
+  <div class="card">
+    <div id="pastPapersEmpty" class="muted" style="display:none;">No papers generated yet.</div>
+    <table id="pastPapersTable" style="display:none;">
+      <thead><tr><th>Paper</th><th>Marks</th><th>Links</th></tr></thead>
+      <tbody id="pastPapersBody"></tbody>
+    </table>
   </div>
 </div>
 
 <script>
   var strandCache = {};
+  var studentName = 'Hamza';
 
   function loadSubjects() {
-    google.script.run.withSuccessHandler(function (subjects) {
-      var sel = document.getElementById('subject');
-      sel.innerHTML = subjects.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
-      loadStrands();
-    }).getAvailableSubjects();
+    google.script.run
+      .withSuccessHandler(function (subjects) {
+        var sel = document.getElementById('subject');
+        sel.innerHTML = subjects.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
+        loadStrands();
+      })
+      .withFailureHandler(showError)
+      .getAvailableSubjects();
   }
 
   function loadStrands() {
     var subject = document.getElementById('subject').value;
     if (strandCache[subject]) { renderManualStrands(strandCache[subject]); return; }
-    google.script.run.withSuccessHandler(function (strands) {
-      strandCache[subject] = strands;
-      renderManualStrands(strands);
-    }).getStrandsForSubject(subject);
+    google.script.run
+      .withSuccessHandler(function (strands) {
+        strandCache[subject] = strands;
+        renderManualStrands(strands);
+      })
+      .withFailureHandler(showError)
+      .getStrandsForSubject(subject);
   }
 
   function renderManualStrands(strands) {
@@ -80,8 +92,34 @@
     el.style.color = sum === totalMarks ? '#1f9d55' : '#d97706';
   }
 
+  function loadPastPapers() {
+    google.script.run
+      .withSuccessHandler(renderPastPapers)
+      .withFailureHandler(showError)
+      .listPapers();
+  }
+
+  function renderPastPapers(papers) {
+    document.getElementById('pastPapersEmpty').style.display = papers.length ? 'none' : 'block';
+    document.getElementById('pastPapersTable').style.display = papers.length ? 'table' : 'none';
+    document.getElementById('pastPapersBody').innerHTML = papers.map(function (p) {
+      var waText = encodeURIComponent('Hi ' + studentName + '! Here is your ' + p.subject + ' ' + p.term + ' paper (' + p.total_marks + ' marks): ' + p.doc_url_paper);
+      return '<tr>' +
+        '<td>' + p.paper_id + '<div class="muted">' + p.subject + ' · ' + p.term + ' · ' + p.created_date + '</div></td>' +
+        '<td>' + p.total_marks + '</td>' +
+        '<td>' +
+          '<a href="' + p.doc_url_paper + '" target="_blank">Paper</a> · ' +
+          '<a href="' + p.doc_url_key + '" target="_blank">Key</a> · ' +
+          '<a href="https://wa.me/?text=' + waText + '" target="_blank">Share</a>' +
+        '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     loadSubjects();
+    loadPastPapers();
+    google.script.run.withSuccessHandler(function (name) { studentName = name || 'Hamza'; }).withFailureHandler(function () {}).getStudentName();
     document.getElementById('subject').addEventListener('change', loadStrands);
     document.getElementById('totalMarks').addEventListener('input', updateManualTotal);
     document.querySelectorAll('input[name="mode"]').forEach(function (r) {
@@ -95,6 +133,7 @@
     var subject = document.getElementById('subject').value;
     var term = document.getElementById('term').value || 'Term 1';
     var totalMarks = Number(document.getElementById('totalMarks').value) || 60;
+    var paperCount = Number(document.getElementById('paperCount').value) || 1;
     var mode = document.querySelector('input[name="mode"]:checked').value;
 
     var config = { subject: subject, term: term, totalMarks: totalMarks, mode: mode };
@@ -110,9 +149,9 @@
     document.getElementById('status').innerHTML = '';
 
     google.script.run
-      .withSuccessHandler(function (res) { onGenerateSuccess(res); resetBtn(); })
+      .withSuccessHandler(function (res) { onGenerateSuccess(res); resetBtn(); loadPastPapers(); })
       .withFailureHandler(function (err) { showError(err); resetBtn(); })
-      .generatePaper(config);
+      .generatePaperBatch(config, paperCount);
   }
 
   function resetBtn() {
@@ -125,14 +164,25 @@
     document.getElementById('status').innerHTML = '<div class="status status-error">' + (err.message || err) + '</div>';
   }
 
-  function onGenerateSuccess(res) {
+  function onGenerateSuccess(batch) {
     document.getElementById('result').style.display = 'block';
-    document.getElementById('resultMeta').textContent = res.paperId + ' · ' + res.subject + ' · ' + res.term + ' · ' + res.totalMarks + ' marks';
-    document.getElementById('paperLink').href = res.docUrlPaper;
-    document.getElementById('keyLink').href = res.docUrlKey;
-    document.getElementById('breakdownBody').innerHTML = res.strandBreakdown.map(function (s) {
-      return '<tr><td>' + s.strand + '</td><td>' + s.target + '</td><td>' + s.achieved + '</td><td>' + s.count + '</td></tr>';
+    document.getElementById('resultList').innerHTML = batch.papers.map(function (res) {
+      return '<div class="card">' +
+        '<div class="muted">' + res.paperId + ' · ' + res.subject + ' · ' + res.term + ' · ' + res.totalMarks + ' marks</div>' +
+        '<a class="doc-link" href="' + res.docUrlPaper + '" target="_blank">Open Paper</a>' +
+        '<a class="doc-link" href="' + res.docUrlKey + '" target="_blank">Open Answer Key</a>' +
+        '<table style="margin-top:14px;">' +
+          '<thead><tr><th>Strand</th><th>Target</th><th>Achieved</th><th>Qs</th></tr></thead>' +
+          '<tbody>' + res.strandBreakdown.map(function (s) {
+            return '<tr><td>' + s.strand + '</td><td>' + s.target + '</td><td>' + s.achieved + '</td><td>' + s.count + '</td></tr>';
+          }).join('') + '</tbody>' +
+        '</table>' +
+        '</div>';
     }).join('');
+    if (batch.errors && batch.errors.length) {
+      document.getElementById('resultList').innerHTML += '<div class="status status-error">Stopped after ' +
+        batch.papers.length + ' paper(s): ' + batch.errors[0].message + '</div>';
+    }
     document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
   }
 </script>

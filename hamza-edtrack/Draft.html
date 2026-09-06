@@ -46,20 +46,26 @@
   var drafted = [];
 
   function loadSubjects() {
-    google.script.run.withSuccessHandler(function (subjects) {
-      var sel = document.getElementById('subject');
-      sel.innerHTML = subjects.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
-      loadStrands();
-    }).getAvailableSubjects();
+    google.script.run
+      .withSuccessHandler(function (subjects) {
+        var sel = document.getElementById('subject');
+        sel.innerHTML = subjects.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
+        loadStrands();
+      })
+      .withFailureHandler(showError)
+      .getAvailableSubjects();
   }
 
   function loadStrands() {
     var subject = document.getElementById('subject').value;
     if (strandCache[subject]) { renderStrands(strandCache[subject]); return; }
-    google.script.run.withSuccessHandler(function (strands) {
-      strandCache[subject] = strands;
-      renderStrands(strands);
-    }).getStrandsForSubject(subject);
+    google.script.run
+      .withSuccessHandler(function (strands) {
+        strandCache[subject] = strands;
+        renderStrands(strands);
+      })
+      .withFailureHandler(showError)
+      .getStrandsForSubject(subject);
   }
 
   function renderStrands(strands) {
@@ -71,9 +77,12 @@
   function loadTopicsHint() {
     var subject = document.getElementById('subject').value;
     var strand = document.getElementById('strand').value;
-    google.script.run.withSuccessHandler(function (topics) {
-      document.getElementById('topicsHint').textContent = topics.length ? 'Topics: ' + topics.join(' · ') : '';
-    }).getSyllabusTopics(subject, strand);
+    google.script.run
+      .withSuccessHandler(function (topics) {
+        document.getElementById('topicsHint').textContent = topics.length ? 'Topics: ' + topics.join(' · ') : '';
+      })
+      .withFailureHandler(showError)
+      .getSyllabusTopics(subject, strand);
   }
 
   document.addEventListener('DOMContentLoaded', function () {

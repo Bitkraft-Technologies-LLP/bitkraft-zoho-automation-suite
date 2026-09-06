@@ -2,7 +2,7 @@
 <div class="wrap">
   <div class="topbar"><a href="<?= getWebAppUrl_() ?>" target="_top">‹ Home</a></div>
   <h1>Grade a Paper</h1>
-  <div class="subtitle">Photos are used only for this grading request — nothing is saved.</div>
+  <div class="subtitle">Photos are used only for this grading request — nothing is saved. To grade a sheet a student photographed and sent you on WhatsApp, save their photo(s) to your camera roll first, then pick "Photo Library" below instead of the camera.</div>
 
   <div class="card" id="setupCard">
     <label for="paperSelect">Paper</label>
@@ -30,26 +30,69 @@
       <div id="saveStatus"></div>
     </div>
   </div>
+
+  <h2>Past Submissions</h2>
+  <div class="card">
+    <div id="pastSubmissionsEmpty" class="muted" style="display:none;">Nothing graded yet.</div>
+    <table id="pastSubmissionsTable" style="display:none;">
+      <thead><tr><th>Paper</th><th>Score</th><th></th></tr></thead>
+      <tbody id="pastSubmissionsBody"></tbody>
+    </table>
+  </div>
 </div>
 
 <script>
   var currentBreakdown = [];
 
   function loadSetup() {
-    google.script.run.withSuccessHandler(function (papers) {
-      var sel = document.getElementById('paperSelect');
-      if (!papers.length) {
-        sel.innerHTML = '<option value="">No papers yet — generate one first</option>';
-        return;
-      }
-      sel.innerHTML = papers.map(function (p) {
-        return '<option value="' + p.paper_id + '">' + p.paper_id + ' — ' + p.subject + ' (' + p.total_marks + ' marks)</option>';
-      }).join('');
-    }).listPapersForGrading();
+    google.script.run
+      .withSuccessHandler(function (papers) {
+        var sel = document.getElementById('paperSelect');
+        if (!papers.length) {
+          sel.innerHTML = '<option value="">No papers yet — generate one first</option>';
+          return;
+        }
+        sel.innerHTML = papers.map(function (p) {
+          return '<option value="' + p.paper_id + '">' + p.paper_id + ' — ' + p.subject + ' (' + p.total_marks + ' marks)</option>';
+        }).join('');
+      })
+      .withFailureHandler(showError)
+      .listPapersForGrading();
 
-    google.script.run.withSuccessHandler(function (name) {
-      document.getElementById('studentName').value = name;
-    }).getStudentName();
+    google.script.run
+      .withSuccessHandler(function (name) { document.getElementById('studentName').value = name; })
+      .withFailureHandler(function () {})
+      .getStudentName();
+
+    loadPastSubmissions();
+  }
+
+  function loadPastSubmissions() {
+    google.script.run
+      .withSuccessHandler(renderPastSubmissions)
+      .withFailureHandler(showError)
+      .listGradedSubmissions();
+  }
+
+  function renderPastSubmissions(subs) {
+    document.getElementById('pastSubmissionsEmpty').style.display = subs.length ? 'none' : 'block';
+    document.getElementById('pastSubmissionsTable').style.display = subs.length ? 'table' : 'none';
+    document.getElementById('pastSubmissionsBody').innerHTML = subs.map(function (s, i) {
+      var pct = s.max ? Math.round((s.awarded / s.max) * 100) : 0;
+      return '<tr>' +
+        '<td>' + s.paper_id + '<div class="muted">' + s.subject + ' · ' + s.student + ' · ' + s.date_taken + '</div></td>' +
+        '<td>' + s.awarded + ' / ' + s.max + ' <span class="pill ' + (pct >= 70 ? 'pill-good' : pct >= 45 ? 'pill-warn' : 'pill-bad') + '">' + pct + '%</span></td>' +
+        '<td><button class="btn btn-secondary" style="margin:0; width:auto; padding:8px 12px;" onclick="viewSubmission(\'' + s.paper_id + '\', \'' + s.student.replace(/'/g, "\\'") + '\')">View</button></td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function viewSubmission(paperId, student) {
+    document.getElementById('status').innerHTML = '<div class="status">Loading…</div>';
+    google.script.run
+      .withSuccessHandler(function (res) { document.getElementById('status').innerHTML = ''; onGraded(res); })
+      .withFailureHandler(showError)
+      .getSubmissionDetail(paperId, student);
   }
 
   document.addEventListener('DOMContentLoaded', function () {
@@ -100,7 +143,7 @@
 
     Promise.all(Array.prototype.map.call(files, fileToBase64)).then(function (images) {
       google.script.run
-        .withSuccessHandler(function (res) { onGraded(res); resetBtn(); })
+        .withSuccessHandler(function (res) { onGraded(res); resetBtn(); loadPastSubmissions(); })
         .withFailureHandler(function (err) { showError(err); resetBtn(); })
         .gradeSubmission(paperId, student, images);
     }).catch(function (err) { showError(err); resetBtn(); });
@@ -158,6 +201,7 @@
         btn.disabled = false;
         btn.textContent = 'Save Corrections';
         document.getElementById('saveStatus').innerHTML = '<div class="status status-ok">Saved (' + res.updated + ' correction' + (res.updated === 1 ? '' : 's') + ' applied).</div>';
+        loadPastSubmissions();
       })
       .withFailureHandler(function (err) {
         btn.disabled = false;

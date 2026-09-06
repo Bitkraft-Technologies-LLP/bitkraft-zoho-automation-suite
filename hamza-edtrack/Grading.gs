@@ -135,3 +135,59 @@ function listPapersForGrading() {
       return { paper_id: p.paper_id, subject: p.subject, term: p.term, created_date: p.created_date, total_marks: p.total_marks };
     });
 }
+
+/** Populates the "Past Submissions" list on the Grade page — one row per graded paper attempt. */
+function listGradedSubmissions() {
+  var results = readSheetAsObjects_(SHEET_RESULTS);
+  var paperInfo = {};
+  readSheetAsObjects_(SHEET_PAPERS).forEach(function (p) { paperInfo[p.paper_id] = { subject: p.subject, term: p.term }; });
+
+  var byAttempt = {};
+  results.forEach(function (r) {
+    var key = r.paper_id + '::' + r.student;
+    if (!byAttempt[key]) {
+      var info = paperInfo[r.paper_id] || {};
+      byAttempt[key] = {
+        paper_id: r.paper_id, student: r.student, subject: info.subject || '', term: info.term || '',
+        date_taken: r.date_taken, date_graded: r.date_graded, awarded: 0, max: 0
+      };
+    }
+    byAttempt[key].awarded += Number(r.marks_awarded);
+    byAttempt[key].max += Number(r.max_marks);
+    if (String(r.date_graded) > String(byAttempt[key].date_graded)) byAttempt[key].date_graded = r.date_graded;
+  });
+
+  return Object.keys(byAttempt).map(function (k) { return byAttempt[k]; })
+    .sort(function (a, b) { return String(b.date_graded).localeCompare(String(a.date_graded)); });
+}
+
+/** Read (and re-editable) breakdown for one already-graded paper attempt, for the "View" action in Past Submissions. */
+function getSubmissionDetail(paperId, student) {
+  var results = readSheetAsObjects_(SHEET_RESULTS).filter(function (r) { return r.paper_id === paperId && r.student === student; });
+  if (!results.length) throw new Error('No graded results found for ' + student + ' on ' + paperId);
+
+  var questionsById = {};
+  getQuestionsByIds_(results.map(function (r) { return r.question_id; })).forEach(function (q) { questionsById[q.id] = q; });
+
+  var breakdown = results.map(function (r) {
+    var q = questionsById[r.question_id];
+    return {
+      result_id: r.result_id,
+      question_id: r.question_id,
+      strand: r.strand,
+      question_text: q ? q.question_text : '(question no longer in the bank)',
+      max_marks: Number(r.max_marks),
+      marks_awarded: Number(r.marks_awarded),
+      extracted_answer: '',
+      reasoning: r.ai_notes || ''
+    };
+  });
+
+  return {
+    paperId: paperId,
+    student: student,
+    total: breakdown.reduce(function (s, b) { return s + b.marks_awarded; }, 0),
+    maxTotal: breakdown.reduce(function (s, b) { return s + b.max_marks; }, 0),
+    breakdown: breakdown
+  };
+}

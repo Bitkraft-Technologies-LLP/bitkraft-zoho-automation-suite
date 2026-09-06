@@ -44,6 +44,9 @@ function generatePaper(config) {
   });
 
   var achievedTotal = orderedQuestions.reduce(function (sum, q) { return sum + Number(q.marks); }, 0);
+  if (achievedTotal === 0) {
+    throw new Error('QuestionBank has no ' + subject + ' questions yet. Use Draft Questions to add some first.');
+  }
   var paperId = generatePaperId_(subject);
 
   var paperDoc = buildPaperDoc_(paperId, subject, term, orderedQuestions, strandOrder);
@@ -69,11 +72,94 @@ function generatePaper(config) {
   };
 }
 
+/**
+ * Generates several papers in one go (e.g. multiple practice papers for the
+ * same subject/mix). Runs generatePaper() sequentially, count times, so
+ * staleness-based sampling (times_used bumped after each) naturally spreads
+ * the picks across papers instead of repeating the same questions.
+ * Returns { papers: [...generatePaper() results], errors: [{index, message}] }.
+ */
+function generatePaperBatch(config, count) {
+  var n = Math.max(1, Math.min(Number(count) || 1, 10));
+  var papers = [];
+  var errors = [];
+  for (var i = 0; i < n; i++) {
+    try {
+      papers.push(generatePaper(config));
+    } catch (e) {
+      errors.push({ index: i, message: e.message });
+      break; // further attempts will hit the same empty-bank error
+    }
+  }
+  return { papers: papers, errors: errors };
+}
+
+/**
+ * One-time setup: registers the real, already-administered Term 1 Maths and
+ * English papers (all seeded questions, in their original order) as Papers
+ * rows, with paper + answer-key Docs generated for reference, so those
+ * exact sheets can be picked on the Grade page and graded against photos of
+ * Hamza's actual completed papers. Safe to re-run — skips a subject that
+ * already has an "-TERM1-ORIGINAL" paper.
+ */
+function seedOriginalPapers() {
+  var subjects = ['Mathematics', 'English'];
+  var results = [];
+
+  subjects.forEach(function (subject) {
+    var paperId = subjectCode_(subject) + '-TERM1-ORIGINAL';
+    var alreadyExists = readSheetAsObjects_(SHEET_PAPERS).some(function (p) { return p.paper_id === paperId; });
+    if (alreadyExists) {
+      results.push({ subject: subject, skipped: true });
+      return;
+    }
+
+    var strandOrder = STRAND_ORDER[subject];
+    var allQuestions = getQuestionsBySubject_(subject).sort(function (a, b) {
+      var strandDiff = strandOrder.indexOf(a.strand) - strandOrder.indexOf(b.strand);
+      if (strandDiff !== 0) return strandDiff;
+      return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
+    });
+    if (!allQuestions.length) {
+      results.push({ subject: subject, skipped: true, reason: 'no seeded questions found' });
+      return;
+    }
+
+    var totalMarks = allQuestions.reduce(function (sum, q) { return sum + Number(q.marks); }, 0);
+    var paperDoc = buildPaperDoc_(paperId, subject, 'Term 1', allQuestions, strandOrder);
+    var keyDoc = buildAnswerKeyDoc_(paperId, subject, 'Term 1', allQuestions, strandOrder);
+
+    getSheet_(SHEET_PAPERS).appendRow([
+      paperId, subject, 'Term 1', todayString_(), totalMarks,
+      allQuestions.map(function (q) { return q.id; }).join(','),
+      paperDoc.getUrl(), keyDoc.getUrl()
+    ]);
+    markQuestionsUsed_(allQuestions.map(function (q) { return q.id; }));
+
+    results.push({ subject: subject, paperId: paperId, totalMarks: totalMarks, docUrlPaper: paperDoc.getUrl(), docUrlKey: keyDoc.getUrl() });
+  });
+
+  Logger.log('seedOriginalPapers: %s', JSON.stringify(results));
+  return results;
+}
+
 /** Exposed to the Generate page so manual strand sliders can be built with sensible defaults. */
 function getStrandsForSubject(subject) {
   var order = STRAND_ORDER[subject] || Object.keys(getStrandWeights_(subject));
   var weights = getStrandWeights_(subject);
   return order.map(function (strand) { return { strand: strand, defaultWeight: Number(weights[strand]) || 0 }; });
+}
+
+/** Populates the "Previously Generated Papers" list on the Generate page. */
+function listPapers() {
+  return readSheetAsObjects_(SHEET_PAPERS)
+    .sort(function (a, b) { return String(b.created_date).localeCompare(String(a.created_date)); })
+    .map(function (p) {
+      return {
+        paper_id: p.paper_id, subject: p.subject, term: p.term, created_date: p.created_date,
+        total_marks: p.total_marks, doc_url_paper: p.doc_url_paper, doc_url_key: p.doc_url_key
+      };
+    });
 }
 
 function getStrandWeights_(subject) {

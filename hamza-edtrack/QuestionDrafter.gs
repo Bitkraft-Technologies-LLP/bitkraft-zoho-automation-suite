@@ -110,6 +110,9 @@ function draftQuestions(config) {
 
   var text = callGemini_(DRAFT_SYSTEM_PROMPT, [{ text: userPrompt }]);
   var drafted = extractJsonArray_(text);
+  if (!Array.isArray(drafted)) {
+    throw new Error('Gemini did not return a question list — got: ' + JSON.stringify(drafted).substring(0, 300));
+  }
 
   return drafted.map(function (q) {
     return {

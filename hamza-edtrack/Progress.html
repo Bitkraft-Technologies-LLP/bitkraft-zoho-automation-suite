@@ -37,11 +37,20 @@
   var chartInstance = null;
 
   function loadSubjects() {
-    google.script.run.withSuccessHandler(function (subjects) {
-      var sel = document.getElementById('subjectSelect');
-      sel.innerHTML = subjects.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
-      loadDashboard();
-    }).getAvailableSubjects();
+    google.script.run
+      .withSuccessHandler(function (subjects) {
+        var sel = document.getElementById('subjectSelect');
+        sel.innerHTML = subjects.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
+        loadDashboard();
+      })
+      .withFailureHandler(showError)
+      .getAvailableSubjects();
+  }
+
+  function showError(err) {
+    document.getElementById('emptyState').style.display = 'block';
+    document.getElementById('content').style.display = 'none';
+    document.getElementById('emptyState').innerHTML = '<div class="status status-error">' + (err.message || err) + '</div>';
   }
 
   document.addEventListener('DOMContentLoaded', function () {
@@ -51,7 +60,7 @@
 
   function loadDashboard() {
     var subject = document.getElementById('subjectSelect').value;
-    google.script.run.withSuccessHandler(renderDashboard).getDashboardData(subject);
+    google.script.run.withSuccessHandler(renderDashboard).withFailureHandler(showError).getDashboardData(subject);
   }
 
   function pillClass(pct) {
