@@ -136,6 +136,22 @@ function getConfigValue_(key, fallback) {
   return key in map ? map[key] : fallback;
 }
 
+/**
+ * Google Sheets silently auto-converts a date-looking string (e.g. the
+ * "2026-09-07" written by todayString_()) into a real Date-typed cell.
+ * google.script.run can fail to serialize a Date object in its return
+ * value — the browser then receives `null` from an otherwise-successful
+ * call, with no error thrown anywhere. Every value read from a sheet goes
+ * through this to convert Dates back to plain strings before they can ever
+ * reach a client-facing return value.
+ */
+function normalizeSheetValue_(value) {
+  if (value instanceof Date) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone() || 'Asia/Kolkata', 'yyyy-MM-dd');
+  }
+  return value;
+}
+
 /** Reads every data row of a sheet as an array of objects keyed by its header row. */
 function readSheetAsObjects_(name) {
   var sheet = getSheet_(name);
@@ -145,7 +161,7 @@ function readSheetAsObjects_(name) {
   var values = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
   return values.map(function (row) {
     var obj = {};
-    headers.forEach(function (h, i) { obj[h] = row[i]; });
+    headers.forEach(function (h, i) { obj[h] = normalizeSheetValue_(row[i]); });
     return obj;
   });
 }
@@ -172,27 +188,6 @@ function generateResultId_() {
 
 function getStudentName() {
   return getConfigValue_('student_name', 'Hamza');
-}
-
-/**
- * Temporary diagnostic — run manually from the Apps Script editor (function
- * dropdown → debugPapers → Run) and check View → Logs. Not called from the
- * web app. Delete once the empty-Papers-list bug is found.
- */
-function debugPapers() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  Logger.log('Active spreadsheet: %s (%s)', ss.getName(), ss.getId());
-  var sheet = ss.getSheetByName(SHEET_PAPERS);
-  if (!sheet) {
-    Logger.log('No sheet named "%s" found. Sheet names present: %s', SHEET_PAPERS,
-      ss.getSheets().map(function (s) { return s.getName(); }).join(', '));
-    return;
-  }
-  Logger.log('Papers sheet: lastRow=%s lastColumn=%s', sheet.getLastRow(), sheet.getLastColumn());
-  var raw = sheet.getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn()).getValues();
-  Logger.log('Raw grid: %s', JSON.stringify(raw));
-  var objs = readSheetAsObjects_(SHEET_PAPERS);
-  Logger.log('readSheetAsObjects_ returned %s rows: %s', objs.length, JSON.stringify(objs));
 }
 
 function todayString_() {
