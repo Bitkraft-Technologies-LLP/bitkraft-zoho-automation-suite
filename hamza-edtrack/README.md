@@ -1,15 +1,24 @@
 # Hamza EdTrack
 
 A personal Google Apps Script tool for tracking Hamza's (Grade 5, IB curriculum)
-Maths and English test performance: generate papers from a seeded question
-bank, grade photographed answer sheets with Claude's vision API, and track
-progress by strand over time. Runs entirely on Google's free stack.
+test performance across Maths, English, Hindi and Marathi: generate papers
+from a question bank, grade photographed answer sheets with Claude's vision
+API, keep growing the bank with AI-drafted questions, and track progress by
+strand over time. Runs entirely on Google's free stack.
+
+Unit of Inquiry and Art aren't covered — they're inquiry/craft-based rather
+than question-and-answer written tests, so there's nothing to generate a
+paper or grade a photo against. French is intentionally excluded per
+Hamza's parent. Hindi and Marathi papers only cover their written strands
+(comprehension, grammar, writing) — recitation and speaking are assessed
+orally at school and aren't testable from a photographed answer sheet.
 
 ## Stack
 
 - Google Apps Script (V8 runtime), bound to a Google Sheet.
 - Plain HTML/CSS/vanilla JS web app (`HtmlService` + `google.script.run`), no build step.
-- Anthropic API (`claude-sonnet-5`) via `UrlFetchApp` for vision-based grading.
+- Anthropic API (`claude-sonnet-5`) via `UrlFetchApp` for vision-based grading
+  and for drafting new questions (text-only) as the bank needs to grow.
 - Chart.js (via CDN) on `<canvas>` for the Progress dashboard — chosen over the
   Apps Script `Charts` service because it renders client-side, is more
   responsive on a ~380px phone screen, and doesn't need a server round trip
@@ -25,6 +34,7 @@ hamza-edtrack/
   PaperGenerator.gs     — generatePaper(): sampling + Google Docs creation
   Grading.gs            — Anthropic vision grading + Results persistence
   Dashboard.gs          — progress aggregation for the Progress page
+  QuestionDrafter.gs    — AI question drafting (syllabus-topic-driven) + save-to-bank
   Index.html            — nav shell
   Generate.html         — "Generate Paper" page
   Grade.html            — "Grade a Paper" page (camera capture + review table)
@@ -32,9 +42,25 @@ hamza-edtrack/
                           Dashboard.html, because Apps Script requires unique
                           file basenames across the whole project regardless
                           of extension, and Dashboard.gs already claims it.
+  Draft.html            — "Draft Questions" page (review-before-save table)
   Styles.html           — shared mobile-first CSS, pulled in via include()
-  seed/questions.json   — the 51 seeded questions, parsed from the Term 1 papers
+  seed/questions.json   — the 51 seeded Maths/English questions, parsed from the Term 1 papers
 ```
+
+## Subjects and strands
+
+- **Mathematics** — Mental Maths, Large Numbers, Addition/Subtraction & Integers, Time & Money, Shape & Space
+- **English** — Reading Comprehension, Grammar & Spelling, Letter Writing, Descriptive Writing
+- **Hindi** — Comprehension, Grammar, Creative Writing
+- **Marathi** — Reading & Comprehension, Grammar, Writing
+
+Strands, syllabus topics and default mark weights all come from the Grade 5
+Term 1 Learning Expectations document and live in `Code.gs` (`strand_weights_*`
+Config defaults) and `QuestionDrafter.gs` (`SYLLABUS_TOPICS`, used to keep
+AI-drafted questions on-syllabus). Maths and English started with 51
+questions parsed from real Term 1 papers; Hindi and Marathi start with an
+empty bank — use **Draft Questions** to populate them before generating a
+paper for either.
 
 ## Sheets schema (bound spreadsheet "Hamza EdTrack — Data")
 

@@ -5,7 +5,9 @@
 
 var STRAND_ORDER = {
   Mathematics: ['Mental Maths', 'Large Numbers', 'Addition, Subtraction & Integers', 'Time & Money', 'Shape & Space'],
-  English: ['Reading Comprehension', 'Grammar & Spelling', 'Letter Writing', 'Descriptive Writing']
+  English: ['Reading Comprehension', 'Grammar & Spelling', 'Letter Writing', 'Descriptive Writing'],
+  Hindi: ['Comprehension', 'Grammar', 'Creative Writing'],
+  Marathi: ['Reading & Comprehension', 'Grammar', 'Writing']
 };
 
 /**

@@ -16,7 +16,7 @@ SHEET_HEADERS[SHEET_CONFIG] = ['key', 'value'];
 
 var DEFAULT_CONFIG = {
   student_name: 'Hamza',
-  default_subjects: 'Mathematics,English',
+  default_subjects: 'Mathematics,English,Hindi,Marathi',
   strand_weights_Mathematics: JSON.stringify({
     'Mental Maths': 10,
     'Large Numbers': 10,
@@ -29,6 +29,19 @@ var DEFAULT_CONFIG = {
     'Grammar & Spelling': 25,
     'Letter Writing': 10,
     'Descriptive Writing': 10
+  }),
+  // Hindi and Marathi cover only the written-paper strands from the Term 1 Learning
+  // Expectations doc — oral/recitation work is assessed separately and isn't testable
+  // from a photographed answer sheet.
+  strand_weights_Hindi: JSON.stringify({
+    'Comprehension': 15,
+    'Grammar': 15,
+    'Creative Writing': 10
+  }),
+  strand_weights_Marathi: JSON.stringify({
+    'Reading & Comprehension': 15,
+    'Grammar': 15,
+    'Writing': 10
   })
 };
 
@@ -39,7 +52,7 @@ var DEFAULT_CONFIG = {
  */
 function doGet(e) {
   ensureSheets_();
-  var pages = { index: 'Index', generate: 'Generate', grade: 'Grade', dashboard: 'Progress' };
+  var pages = { index: 'Index', generate: 'Generate', grade: 'Grade', dashboard: 'Progress', draft: 'Draft' };
   var page = (e && e.parameter && e.parameter.page) || 'index';
   var file = pages[page] || 'Index';
   return HtmlService.createTemplateFromFile(file)

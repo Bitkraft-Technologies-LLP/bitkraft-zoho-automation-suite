@@ -1,0 +1,178 @@
+<?!= include('Styles'); ?>
+<div class="wrap">
+  <div class="topbar"><a href="?page=index">‹ Home</a></div>
+  <h1>Draft Questions</h1>
+  <div class="subtitle">AI-drafted from the Term 1 syllabus topics for the chosen strand. Review and edit before saving — nothing is added to the bank until you save it.</div>
+
+  <div class="card">
+    <label for="subject">Subject</label>
+    <select id="subject"></select>
+
+    <label for="strand">Strand</label>
+    <select id="strand"></select>
+    <div id="topicsHint" class="muted" style="margin-top:4px;"></div>
+
+    <div class="row">
+      <div>
+        <label for="count">How many</label>
+        <input type="number" id="count" value="5" min="1" max="15" />
+      </div>
+      <div>
+        <label for="difficulty">Difficulty</label>
+        <select id="difficulty">
+          <option value="1">1 — warm-up</option>
+          <option value="2" selected>2 — standard</option>
+          <option value="3">3 — multi-step</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn" id="draftBtn" onclick="submitDraft()">Draft Questions</button>
+    <div id="status"></div>
+  </div>
+
+  <div id="reviewCard" style="display:none;">
+    <h2>Review before saving</h2>
+    <div id="reviewList"></div>
+    <div class="card">
+      <button class="btn" id="saveBtn" onclick="saveSelected()">Save Selected to Question Bank</button>
+      <div id="saveStatus"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  var strandCache = {};
+  var drafted = [];
+
+  function loadSubjects() {
+    google.script.run.withSuccessHandler(function (subjects) {
+      var sel = document.getElementById('subject');
+      sel.innerHTML = subjects.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
+      loadStrands();
+    }).getAvailableSubjects();
+  }
+
+  function loadStrands() {
+    var subject = document.getElementById('subject').value;
+    if (strandCache[subject]) { renderStrands(strandCache[subject]); return; }
+    google.script.run.withSuccessHandler(function (strands) {
+      strandCache[subject] = strands;
+      renderStrands(strands);
+    }).getStrandsForSubject(subject);
+  }
+
+  function renderStrands(strands) {
+    var sel = document.getElementById('strand');
+    sel.innerHTML = strands.map(function (s) { return '<option value="' + s.strand + '">' + s.strand + '</option>'; }).join('');
+    loadTopicsHint();
+  }
+
+  function loadTopicsHint() {
+    var subject = document.getElementById('subject').value;
+    var strand = document.getElementById('strand').value;
+    google.script.run.withSuccessHandler(function (topics) {
+      document.getElementById('topicsHint').textContent = topics.length ? 'Topics: ' + topics.join(' · ') : '';
+    }).getSyllabusTopics(subject, strand);
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    loadSubjects();
+    document.getElementById('subject').addEventListener('change', loadStrands);
+    document.getElementById('strand').addEventListener('change', loadTopicsHint);
+  });
+
+  function submitDraft() {
+    var config = {
+      subject: document.getElementById('subject').value,
+      strand: document.getElementById('strand').value,
+      count: Number(document.getElementById('count').value) || 5,
+      difficulty: Number(document.getElementById('difficulty').value) || 2
+    };
+
+    var btn = document.getElementById('draftBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Drafting…';
+    document.getElementById('status').innerHTML = '';
+
+    google.script.run
+      .withSuccessHandler(function (res) { onDrafted(config.subject, res); resetBtn(); })
+      .withFailureHandler(function (err) { showError(err); resetBtn(); })
+      .draftQuestions(config);
+  }
+
+  function resetBtn() {
+    var btn = document.getElementById('draftBtn');
+    btn.disabled = false;
+    btn.textContent = 'Draft Questions';
+  }
+
+  function showError(err) {
+    document.getElementById('status').innerHTML = '<div class="status status-error">' + (err.message || err) + '</div>';
+  }
+
+  function onDrafted(subject, questions) {
+    drafted = questions;
+    document.getElementById('reviewCard').style.display = 'block';
+    document.getElementById('reviewList').innerHTML = questions.map(function (q, i) {
+      return '<div class="card">' +
+        '<label><input type="checkbox" class="include-box" data-index="' + i + '" checked /> Include</label>' +
+        '<label>Question</label><textarea rows="3" data-field="question_text" data-index="' + i + '">' + escapeHtml(q.question_text) + '</textarea>' +
+        '<div class="row">' +
+          '<div><label>Marks</label><input type="number" data-field="marks" data-index="' + i + '" value="' + q.marks + '" min="1" /></div>' +
+          '<div><label>Difficulty</label><input type="number" data-field="difficulty" data-index="' + i + '" value="' + q.difficulty + '" min="1" max="3" /></div>' +
+        '</div>' +
+        '<label>Sub-skill</label><input type="text" data-field="sub_skill" data-index="' + i + '" value="' + escapeAttr(q.sub_skill) + '" />' +
+        '<label>Answer</label><textarea rows="2" data-field="answer_text" data-index="' + i + '">' + escapeHtml(q.answer_text) + '</textarea>' +
+        '<label>Marking notes</label><textarea rows="2" data-field="marking_notes" data-index="' + i + '">' + escapeHtml(q.marking_notes) + '</textarea>' +
+        '</div>';
+    }).join('');
+    document.getElementById('reviewCard').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function collectApproved() {
+    document.querySelectorAll('[data-field]').forEach(function (el) {
+      var i = Number(el.dataset.index);
+      var field = el.dataset.field;
+      var value = (field === 'marks' || field === 'difficulty') ? Number(el.value) : el.value;
+      drafted[i][field] = value;
+    });
+    var approved = [];
+    document.querySelectorAll('.include-box').forEach(function (cb) {
+      if (cb.checked) approved.push(drafted[Number(cb.dataset.index)]);
+    });
+    return approved;
+  }
+
+  function saveSelected() {
+    var subject = document.getElementById('subject').value;
+    var approved = collectApproved();
+    if (!approved.length) { document.getElementById('saveStatus').innerHTML = '<div class="status status-error">Nothing selected.</div>'; return; }
+
+    var btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Saving…';
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        btn.disabled = false;
+        btn.textContent = 'Save Selected to Question Bank';
+        document.getElementById('saveStatus').innerHTML = '<div class="status status-ok">Saved ' + res.inserted + ' question(s): ' + res.ids.join(', ') + '</div>';
+      })
+      .withFailureHandler(function (err) {
+        btn.disabled = false;
+        btn.textContent = 'Save Selected to Question Bank';
+        document.getElementById('saveStatus').innerHTML = '<div class="status status-error">' + (err.message || err) + '</div>';
+      })
+      .saveDraftedQuestions(subject, approved);
+  }
+
+  function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+  function escapeAttr(str) {
+    return (str || '').replace(/"/g, '&quot;');
+  }
+</script>
