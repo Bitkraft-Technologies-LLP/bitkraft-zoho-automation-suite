@@ -174,6 +174,27 @@ function getStudentName() {
   return getConfigValue_('student_name', 'Hamza');
 }
 
+/**
+ * Temporary diagnostic — run manually from the Apps Script editor (function
+ * dropdown → debugPapers → Run) and check View → Logs. Not called from the
+ * web app. Delete once the empty-Papers-list bug is found.
+ */
+function debugPapers() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  Logger.log('Active spreadsheet: %s (%s)', ss.getName(), ss.getId());
+  var sheet = ss.getSheetByName(SHEET_PAPERS);
+  if (!sheet) {
+    Logger.log('No sheet named "%s" found. Sheet names present: %s', SHEET_PAPERS,
+      ss.getSheets().map(function (s) { return s.getName(); }).join(', '));
+    return;
+  }
+  Logger.log('Papers sheet: lastRow=%s lastColumn=%s', sheet.getLastRow(), sheet.getLastColumn());
+  var raw = sheet.getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn()).getValues();
+  Logger.log('Raw grid: %s', JSON.stringify(raw));
+  var objs = readSheetAsObjects_(SHEET_PAPERS);
+  Logger.log('readSheetAsObjects_ returned %s rows: %s', objs.length, JSON.stringify(objs));
+}
+
 function todayString_() {
   var tz = Session.getScriptTimeZone() || 'Asia/Kolkata';
   return Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
