@@ -62,6 +62,18 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+/**
+ * The canonical /exec URL for this deployment. Nav links must use this
+ * (with target="_top") rather than a relative "?page=..." href — a relative
+ * link clicked inside Apps Script's sandboxed content iframe resolves
+ * against the iframe's own googleusercontent.com URL and navigates that
+ * iframe in place, which does not fully re-render (blank page, no JS error).
+ * A real top-level navigation back to this URL reloads correctly every time.
+ */
+function getWebAppUrl_() {
+  return ScriptApp.getService().getUrl();
+}
+
 /** Lets HTML templates pull in shared partials via <?!= include('File') ?>. */
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
