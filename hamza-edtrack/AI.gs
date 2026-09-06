@@ -4,13 +4,25 @@
  * array and call callGemini_(); this file owns the endpoint, auth and
  * response parsing so there's one place to update if either changes.
  *
- * Model id confirmed current on 2026-09-06 (Gemini API docs / release notes).
- * Gemini model ids rotate — check https://ai.google.dev/gemini-api/docs/models
- * if calls start failing with a "model not found" error.
+ * The active model is a Config value (set from the Settings page), read
+ * fresh on every call via getGeminiModel_() — never hardcode a call to a
+ * specific model id here. AVAILABLE_GEMINI_MODELS below feeds the Settings
+ * dropdown; models confirmed current on 2026-09-06 (Gemini API docs /
+ * release notes) — check https://ai.google.dev/gemini-api/docs/models and
+ * update this list if a model retires or a newer one ships.
  */
 
-var GEMINI_MODEL = 'gemini-3.8-flash';
-var GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent';
+var GEMINI_DEFAULT_MODEL = 'gemini-3.8-flash';
+var AVAILABLE_GEMINI_MODELS = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.5-flash', 'gemini-2.5-flash'];
+
+/** Reads the active model from Config (Settings page), falling back to the default. */
+function getGeminiModel_() {
+  return getConfigValue_('gemini_model', GEMINI_DEFAULT_MODEL);
+}
+
+function getGeminiApiUrl_(model) {
+  return 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent';
+}
 
 function getGeminiApiKey_() {
   var key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
@@ -47,10 +59,11 @@ function callGemini_(systemInstruction, parts) {
   // grading request is expensive for the user to have to manually resubmit.
   var retryableStatuses = [429, 500, 503, 504];
   var delays = [3000, 8000, 15000, 30000];
+  var apiUrl = getGeminiApiUrl_(getGeminiModel_());
   var response, status, lastErrorText;
 
   for (var attempt = 0; attempt <= delays.length; attempt++) {
-    response = UrlFetchApp.fetch(GEMINI_API_URL, options);
+    response = UrlFetchApp.fetch(apiUrl, options);
     status = response.getResponseCode();
     if (status === 200) break;
     lastErrorText = response.getContentText().substring(0, 500);
@@ -59,7 +72,7 @@ function callGemini_(systemInstruction, parts) {
   }
 
   if (status !== 200) {
-    throw new Error('Gemini API error (' + status + '): ' + lastErrorText);
+    throw new Error('Gemini API error (' + status + ', model ' + getGeminiModel_() + '): ' + lastErrorText);
   }
 
   var body = JSON.parse(response.getContentText());

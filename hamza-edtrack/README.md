@@ -17,10 +17,13 @@ orally at school and aren't testable from a photographed answer sheet.
 
 - Google Apps Script (V8 runtime), bound to a Google Sheet.
 - Plain HTML/CSS/vanilla JS web app (`HtmlService` + `google.script.run`), no build step.
-- Gemini API (`gemini-3.8-flash`) via `UrlFetchApp` for vision-based grading
-  and for drafting new questions (text-only) as the bank needs to grow.
-  Chosen over Anthropic's API so the key comes from the same Google account
-  already used for everything else here, with Google AI Studio's free tier.
+- Gemini API via `UrlFetchApp` for vision-based grading and for drafting new
+  questions (text-only) as the bank needs to grow. Chosen over Anthropic's
+  API so the key comes from the same Google account already used for
+  everything else here, with Google AI Studio's free tier. Which model is
+  active is a **Settings** page choice (default `gemini-3.8-flash`), not a
+  hardcoded constant — useful since a "high demand" 503 on one model can
+  often be worked around by switching to another.
 - Chart.js (via CDN) on `<canvas>` for the Progress dashboard — chosen over the
   Apps Script `Charts` service because it renders client-side, is more
   responsive on a ~380px phone screen, and doesn't need a server round trip
@@ -46,6 +49,7 @@ hamza-edtrack/
                           file basenames across the whole project regardless
                           of extension, and Dashboard.gs already claims it.
   Draft.html            — "Draft Questions" page (review-before-save table)
+  Settings.html         — student name + Gemini model picker
   Styles.html           — shared mobile-first CSS, pulled in via include()
   seed/questions.json   — the 51 seeded Maths/English questions, parsed from the Term 1 papers
 ```

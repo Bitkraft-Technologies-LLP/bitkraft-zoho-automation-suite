@@ -1,0 +1,93 @@
+<?!= include('Styles'); ?>
+<div class="wrap">
+  <div class="topbar"><a href="<?= getWebAppUrl_() ?>" target="_top">‹ Home</a></div>
+  <h1>Settings</h1>
+  <div class="subtitle">Student name and which Gemini model grades/drafts questions.</div>
+
+  <div class="card">
+    <label for="studentName">Student</label>
+    <input type="text" id="studentName" />
+
+    <label for="modelSelect">Gemini model</label>
+    <select id="modelSelect"></select>
+    <div id="customModelWrap" style="display:none;">
+      <label for="customModel">Model id</label>
+      <input type="text" id="customModel" placeholder="e.g. gemini-3.8-flash" />
+    </div>
+    <div class="muted" style="margin-top:4px;">
+      If grading keeps failing with a "high demand" (503) error, switching to a different model here can help —
+      different models have separate capacity. Model ids change over time; pick "Other (type below)" to enter
+      one directly from <a href="https://ai.google.dev/gemini-api/docs/models" target="_blank">Google's model list</a>.
+    </div>
+
+    <button class="btn" id="saveBtn" onclick="saveSettings()">Save Settings</button>
+    <div id="status"></div>
+  </div>
+</div>
+
+<script>
+  var CUSTOM_VALUE = '__custom__';
+
+  function loadSettings() {
+    google.script.run
+      .withSuccessHandler(function (settings) {
+        settings = settings || {};
+        document.getElementById('studentName').value = settings.studentName || 'Hamza';
+        var models = settings.availableModels || [];
+        var current = settings.geminiModel || '';
+        var sel = document.getElementById('modelSelect');
+        var options = models.map(function (m) { return '<option value="' + m + '">' + m + '</option>'; });
+        options.push('<option value="' + CUSTOM_VALUE + '">Other (type below)</option>');
+        sel.innerHTML = options.join('');
+        if (models.indexOf(current) !== -1) {
+          sel.value = current;
+        } else {
+          sel.value = CUSTOM_VALUE;
+          document.getElementById('customModel').value = current;
+        }
+        toggleCustomModel();
+      })
+      .withFailureHandler(showError)
+      .getSettings();
+  }
+
+  function toggleCustomModel() {
+    var isCustom = document.getElementById('modelSelect').value === CUSTOM_VALUE;
+    document.getElementById('customModelWrap').style.display = isCustom ? 'block' : 'none';
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    loadSettings();
+    document.getElementById('modelSelect').addEventListener('change', toggleCustomModel);
+  });
+
+  function showError(err) {
+    document.getElementById('status').innerHTML = '<div class="status status-error">' + (err.message || err) + '</div>';
+  }
+
+  function saveSettings() {
+    var modelSelect = document.getElementById('modelSelect').value;
+    var geminiModel = modelSelect === CUSTOM_VALUE ? document.getElementById('customModel').value.trim() : modelSelect;
+    if (!geminiModel) { showError('Enter a model id.'); return; }
+
+    var btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Saving…';
+
+    google.script.run
+      .withSuccessHandler(function () {
+        btn.disabled = false;
+        btn.textContent = 'Save Settings';
+        document.getElementById('status').innerHTML = '<div class="status status-ok">Saved.</div>';
+      })
+      .withFailureHandler(function (err) {
+        btn.disabled = false;
+        btn.textContent = 'Save Settings';
+        showError(err);
+      })
+      .saveSettings({
+        studentName: document.getElementById('studentName').value,
+        geminiModel: geminiModel
+      });
+  }
+</script>

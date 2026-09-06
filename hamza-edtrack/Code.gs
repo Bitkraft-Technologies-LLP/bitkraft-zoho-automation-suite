@@ -52,7 +52,7 @@ var DEFAULT_CONFIG = {
  */
 function doGet(e) {
   ensureSheets_();
-  var pages = { index: 'Index', generate: 'Generate', grade: 'Grade', dashboard: 'Progress', draft: 'Draft' };
+  var pages = { index: 'Index', generate: 'Generate', grade: 'Grade', dashboard: 'Progress', draft: 'Draft', settings: 'Settings' };
   var page = (e && e.parameter && e.parameter.page) || 'index';
   var file = pages[page] || 'Index';
   return HtmlService.createTemplateFromFile(file)
@@ -134,6 +134,38 @@ function getConfigMap_() {
 function getConfigValue_(key, fallback) {
   var map = getConfigMap_();
   return key in map ? map[key] : fallback;
+}
+
+/** Updates a Config row if the key exists, otherwise appends a new one. */
+function setConfigValue_(key, value) {
+  var sheet = getSheet_(SHEET_CONFIG);
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    var keys = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (var i = 0; i < keys.length; i++) {
+      if (keys[i][0] === key) {
+        sheet.getRange(i + 2, 2).setValue(value);
+        return;
+      }
+    }
+  }
+  sheet.appendRow([key, value]);
+}
+
+/** Populates the Settings page. */
+function getSettings() {
+  return {
+    studentName: getConfigValue_('student_name', 'Hamza'),
+    geminiModel: getGeminiModel_(),
+    availableModels: AVAILABLE_GEMINI_MODELS
+  };
+}
+
+/** settings: { studentName, geminiModel }. */
+function saveSettings(settings) {
+  setConfigValue_('student_name', (settings.studentName || 'Hamza').trim());
+  setConfigValue_('gemini_model', (settings.geminiModel || GEMINI_DEFAULT_MODEL).trim());
+  return { saved: true };
 }
 
 /**
