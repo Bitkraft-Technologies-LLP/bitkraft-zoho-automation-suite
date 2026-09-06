@@ -34,18 +34,32 @@ function callGemini_(systemInstruction, parts) {
     systemInstruction: { parts: [{ text: systemInstruction }] },
     generationConfig: { responseMimeType: 'application/json', temperature: 0.4 }
   };
-
-  var response = UrlFetchApp.fetch(GEMINI_API_URL, {
+  var options = {
     method: 'post',
     contentType: 'application/json',
     headers: { 'x-goog-api-key': apiKey },
     payload: JSON.stringify(payload),
     muteHttpExceptions: true
-  });
+  };
 
-  var status = response.getResponseCode();
+  // Gemini occasionally returns 429/500/503/504 under transient load — retry
+  // a few times with backoff before surfacing an error, since a photo
+  // grading request is expensive for the user to have to manually resubmit.
+  var retryableStatuses = [429, 500, 503, 504];
+  var delays = [2000, 5000, 10000];
+  var response, status, lastErrorText;
+
+  for (var attempt = 0; attempt <= delays.length; attempt++) {
+    response = UrlFetchApp.fetch(GEMINI_API_URL, options);
+    status = response.getResponseCode();
+    if (status === 200) break;
+    lastErrorText = response.getContentText().substring(0, 500);
+    if (retryableStatuses.indexOf(status) === -1 || attempt === delays.length) break;
+    Utilities.sleep(delays[attempt]);
+  }
+
   if (status !== 200) {
-    throw new Error('Gemini API error (' + status + '): ' + response.getContentText().substring(0, 500));
+    throw new Error('Gemini API error (' + status + '): ' + lastErrorText);
   }
 
   var body = JSON.parse(response.getContentText());
