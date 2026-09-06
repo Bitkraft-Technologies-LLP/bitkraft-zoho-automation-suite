@@ -48,6 +48,7 @@
   function loadSubjects() {
     google.script.run
       .withSuccessHandler(function (subjects) {
+        subjects = subjects || [];
         var sel = document.getElementById('subject');
         sel.innerHTML = subjects.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
         loadStrands();
@@ -61,6 +62,7 @@
     if (strandCache[subject]) { renderStrands(strandCache[subject]); return; }
     google.script.run
       .withSuccessHandler(function (strands) {
+        strands = strands || [];
         strandCache[subject] = strands;
         renderStrands(strands);
       })
@@ -69,6 +71,7 @@
   }
 
   function renderStrands(strands) {
+    strands = strands || [];
     var sel = document.getElementById('strand');
     sel.innerHTML = strands.map(function (s) { return '<option value="' + s.strand + '">' + s.strand + '</option>'; }).join('');
     loadTopicsHint();
@@ -79,6 +82,7 @@
     var strand = document.getElementById('strand').value;
     google.script.run
       .withSuccessHandler(function (topics) {
+        topics = topics || [];
         document.getElementById('topicsHint').textContent = topics.length ? 'Topics: ' + topics.join(' · ') : '';
       })
       .withFailureHandler(showError)
@@ -121,7 +125,7 @@
   }
 
   function onDrafted(subject, questions) {
-    drafted = questions;
+    drafted = questions = questions || [];
     document.getElementById('reviewCard').style.display = 'block';
     document.getElementById('reviewList').innerHTML = questions.map(function (q, i) {
       return '<div class="card">' +

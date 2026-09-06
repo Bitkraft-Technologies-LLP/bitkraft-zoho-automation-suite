@@ -47,6 +47,7 @@
   function loadSetup() {
     google.script.run
       .withSuccessHandler(function (papers) {
+        papers = papers || [];
         var sel = document.getElementById('paperSelect');
         if (!papers.length) {
           sel.innerHTML = '<option value="">No papers yet — generate one first</option>';
@@ -75,6 +76,7 @@
   }
 
   function renderPastSubmissions(subs) {
+    subs = subs || [];
     document.getElementById('pastSubmissionsEmpty').style.display = subs.length ? 'none' : 'block';
     document.getElementById('pastSubmissionsTable').style.display = subs.length ? 'table' : 'none';
     document.getElementById('pastSubmissionsBody').innerHTML = subs.map(function (s, i) {
@@ -160,11 +162,11 @@
   }
 
   function onGraded(res) {
-    currentBreakdown = res.breakdown;
+    currentBreakdown = (res && res.breakdown) || [];
     document.getElementById('resultsCard').style.display = 'block';
     updateTotalDisplay(res.total, res.maxTotal);
 
-    document.getElementById('resultsBody').innerHTML = res.breakdown.map(function (b, i) {
+    document.getElementById('resultsBody').innerHTML = currentBreakdown.map(function (b, i) {
       return '<tr>' +
         '<td>' + b.question_id + '<div class="muted">' + escapeHtml(b.question_text) + '</div>' +
           (b.extracted_answer ? '<div class="muted">Read: “' + escapeHtml(b.extracted_answer) + '”</div>' : '') + '</td>' +

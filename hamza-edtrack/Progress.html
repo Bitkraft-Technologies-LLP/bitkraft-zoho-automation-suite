@@ -70,6 +70,10 @@
   }
 
   function renderDashboard(data) {
+    data = data || {};
+    data.timeSeries = data.timeSeries || [];
+    data.strandStats = data.strandStats || [];
+    data.weakestStrands = data.weakestStrands || [];
     if (!data.timeSeries.length) {
       document.getElementById('emptyState').style.display = 'block';
       document.getElementById('content').style.display = 'none';

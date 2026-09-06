@@ -52,6 +52,7 @@
   function loadSubjects() {
     google.script.run
       .withSuccessHandler(function (subjects) {
+        subjects = subjects || [];
         var sel = document.getElementById('subject');
         sel.innerHTML = subjects.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
         loadStrands();
@@ -65,6 +66,7 @@
     if (strandCache[subject]) { renderManualStrands(strandCache[subject]); return; }
     google.script.run
       .withSuccessHandler(function (strands) {
+        strands = strands || [];
         strandCache[subject] = strands;
         renderManualStrands(strands);
       })
@@ -100,6 +102,7 @@
   }
 
   function renderPastPapers(papers) {
+    papers = papers || [];
     document.getElementById('pastPapersEmpty').style.display = papers.length ? 'none' : 'block';
     document.getElementById('pastPapersTable').style.display = papers.length ? 'table' : 'none';
     document.getElementById('pastPapersBody').innerHTML = papers.map(function (p) {
@@ -165,6 +168,9 @@
   }
 
   function onGenerateSuccess(batch) {
+    batch = batch || {};
+    batch.papers = batch.papers || [];
+    batch.errors = batch.errors || [];
     document.getElementById('result').style.display = 'block';
     document.getElementById('resultList').innerHTML = batch.papers.map(function (res) {
       return '<div class="card">' +
@@ -173,7 +179,7 @@
         '<a class="doc-link" href="' + res.docUrlKey + '" target="_blank">Open Answer Key</a>' +
         '<table style="margin-top:14px;">' +
           '<thead><tr><th>Strand</th><th>Target</th><th>Achieved</th><th>Qs</th></tr></thead>' +
-          '<tbody>' + res.strandBreakdown.map(function (s) {
+          '<tbody>' + (res.strandBreakdown || []).map(function (s) {
             return '<tr><td>' + s.strand + '</td><td>' + s.target + '</td><td>' + s.achieved + '</td><td>' + s.count + '</td></tr>';
           }).join('') + '</tbody>' +
         '</table>' +
