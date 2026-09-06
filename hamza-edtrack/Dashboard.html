@@ -1,0 +1,109 @@
+<?!= include('Styles'); ?>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<div class="wrap">
+  <div class="topbar"><a href="?page=index">‹ Home</a></div>
+  <h1>Progress</h1>
+  <div class="subtitle">Chart.js on &lt;canvas&gt; — lighter than the Apps Script Charts service and reads fine on a phone screen.</div>
+
+  <div class="card">
+    <label for="subjectSelect">Subject</label>
+    <select id="subjectSelect"></select>
+  </div>
+
+  <div id="emptyState" class="card" style="display:none;">
+    <div class="muted">No graded results yet for this subject. Generate a paper and grade a submission to see progress here.</div>
+  </div>
+
+  <div id="content" style="display:none;">
+    <h2>Score over time</h2>
+    <div class="card">
+      <canvas id="scoreChart" height="180"></canvas>
+    </div>
+
+    <h2>Weakest strands</h2>
+    <div id="weakestList"></div>
+
+    <h2>All strands</h2>
+    <div class="card">
+      <table>
+        <thead><tr><th>Strand</th><th>Attempts</th><th>Recent avg</th><th>Overall</th></tr></thead>
+        <tbody id="strandBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  var chartInstance = null;
+
+  function loadSubjects() {
+    google.script.run.withSuccessHandler(function (subjects) {
+      var sel = document.getElementById('subjectSelect');
+      sel.innerHTML = subjects.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
+      loadDashboard();
+    }).getAvailableSubjects();
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    loadSubjects();
+    document.getElementById('subjectSelect').addEventListener('change', loadDashboard);
+  });
+
+  function loadDashboard() {
+    var subject = document.getElementById('subjectSelect').value;
+    google.script.run.withSuccessHandler(renderDashboard).getDashboardData(subject);
+  }
+
+  function pillClass(pct) {
+    if (pct >= 70) return 'pill-good';
+    if (pct >= 45) return 'pill-warn';
+    return 'pill-bad';
+  }
+
+  function renderDashboard(data) {
+    if (!data.timeSeries.length) {
+      document.getElementById('emptyState').style.display = 'block';
+      document.getElementById('content').style.display = 'none';
+      return;
+    }
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+
+    var ctx = document.getElementById('scoreChart').getContext('2d');
+    var labels = data.timeSeries.map(function (t) { return t.date + ' (' + t.paper_id + ')'; });
+    var pcts = data.timeSeries.map(function (t) { return t.pct; });
+
+    if (chartInstance) chartInstance.destroy();
+    chartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: '% score',
+          data: pcts,
+          borderColor: '#2f6fed',
+          backgroundColor: 'rgba(47,111,237,0.12)',
+          fill: true,
+          tension: 0.25,
+          pointRadius: 4
+        }]
+      },
+      options: {
+        scales: { y: { min: 0, max: 100, ticks: { callback: function (v) { return v + '%'; } } } },
+        plugins: { legend: { display: false } }
+      }
+    });
+
+    document.getElementById('weakestList').innerHTML = data.weakestStrands.map(function (s) {
+      return '<div class="card"><strong>' + s.strand + '</strong> ' +
+        '<span class="pill ' + pillClass(s.rollingAvgPct) + '">' + s.rollingAvgPct + '%</span>' +
+        '<div class="muted">Recent average over last ' + Math.min(s.attempts, 5) + ' question attempt(s)</div></div>';
+    }).join('') || '<div class="muted">Not enough data yet.</div>';
+
+    document.getElementById('strandBody').innerHTML = data.strandStats.map(function (s) {
+      return '<tr><td>' + s.strand + '</td><td>' + s.attempts + '</td>' +
+        '<td><span class="pill ' + pillClass(s.rollingAvgPct) + '">' + s.rollingAvgPct + '%</span></td>' +
+        '<td>' + s.overallPct + '%</td></tr>';
+    }).join('');
+  }
+</script>

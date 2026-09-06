@@ -1,0 +1,175 @@
+<?!= include('Styles'); ?>
+<div class="wrap">
+  <div class="topbar"><a href="?page=index">‹ Home</a></div>
+  <h1>Grade a Paper</h1>
+  <div class="subtitle">Photos are used only for this grading request — nothing is saved.</div>
+
+  <div class="card" id="setupCard">
+    <label for="paperSelect">Paper</label>
+    <select id="paperSelect"></select>
+
+    <label for="studentName">Student</label>
+    <input type="text" id="studentName" />
+
+    <label for="photos">Photos of the answer sheet (1–4 pages)</label>
+    <input type="file" id="photos" accept="image/*" capture="environment" multiple />
+    <div class="thumb-row" id="thumbs"></div>
+
+    <button class="btn" id="gradeBtn" onclick="submitGrading()">Grade Submission</button>
+    <div id="status"></div>
+  </div>
+
+  <div id="resultsCard" style="display:none;">
+    <h2>Results — <span id="totalScore"></span></h2>
+    <div class="card">
+      <table>
+        <thead><tr><th>Q</th><th style="width:60px;">Marks</th><th>AI reasoning</th></tr></thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+      <button class="btn" id="saveBtn" onclick="saveCorrections()">Save Corrections</button>
+      <div id="saveStatus"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  var currentBreakdown = [];
+
+  function loadSetup() {
+    google.script.run.withSuccessHandler(function (papers) {
+      var sel = document.getElementById('paperSelect');
+      if (!papers.length) {
+        sel.innerHTML = '<option value="">No papers yet — generate one first</option>';
+        return;
+      }
+      sel.innerHTML = papers.map(function (p) {
+        return '<option value="' + p.paper_id + '">' + p.paper_id + ' — ' + p.subject + ' (' + p.total_marks + ' marks)</option>';
+      }).join('');
+    }).listPapersForGrading();
+
+    google.script.run.withSuccessHandler(function (name) {
+      document.getElementById('studentName').value = name;
+    }).getStudentName();
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    loadSetup();
+    document.getElementById('photos').addEventListener('change', renderThumbs);
+  });
+
+  function renderThumbs() {
+    var files = document.getElementById('photos').files;
+    var thumbs = document.getElementById('thumbs');
+    thumbs.innerHTML = '';
+    Array.prototype.forEach.call(files, function (file) {
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        var img = document.createElement('img');
+        img.src = e.target.result;
+        thumbs.appendChild(img);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function fileToBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        var result = reader.result;
+        var data = result.substring(result.indexOf(',') + 1);
+        resolve({ data: data, mimeType: file.type || 'image/jpeg' });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function submitGrading() {
+    var paperId = document.getElementById('paperSelect').value;
+    var student = document.getElementById('studentName').value || 'Hamza';
+    var files = document.getElementById('photos').files;
+
+    if (!paperId) { showError('Pick a paper first.'); return; }
+    if (!files.length) { showError('Add at least one photo.'); return; }
+
+    var btn = document.getElementById('gradeBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Grading… this can take a minute';
+    document.getElementById('status').innerHTML = '';
+
+    Promise.all(Array.prototype.map.call(files, fileToBase64)).then(function (images) {
+      google.script.run
+        .withSuccessHandler(function (res) { onGraded(res); resetBtn(); })
+        .withFailureHandler(function (err) { showError(err); resetBtn(); })
+        .gradeSubmission(paperId, student, images);
+    }).catch(function (err) { showError(err); resetBtn(); });
+  }
+
+  function resetBtn() {
+    var btn = document.getElementById('gradeBtn');
+    btn.disabled = false;
+    btn.textContent = 'Grade Submission';
+  }
+
+  function showError(err) {
+    document.getElementById('status').innerHTML = '<div class="status status-error">' + (err.message || err) + '</div>';
+  }
+
+  function onGraded(res) {
+    currentBreakdown = res.breakdown;
+    document.getElementById('resultsCard').style.display = 'block';
+    updateTotalDisplay(res.total, res.maxTotal);
+
+    document.getElementById('resultsBody').innerHTML = res.breakdown.map(function (b, i) {
+      return '<tr>' +
+        '<td>' + b.question_id + '<div class="muted">' + escapeHtml(b.question_text) + '</div>' +
+          (b.extracted_answer ? '<div class="muted">Read: “' + escapeHtml(b.extracted_answer) + '”</div>' : '') + '</td>' +
+        '<td><input type="number" class="mark-input" data-index="' + i + '" data-result-id="' + b.result_id + '" ' +
+          'value="' + b.marks_awarded + '" min="0" max="' + b.max_marks + '" step="0.5" onInput="updateTotalFromInputs(' + res.maxTotal + ')" style="width:52px;" /> / ' + b.max_marks + '</td>' +
+        '<td class="muted">' + escapeHtml(b.reasoning) + '</td>' +
+        '</tr>';
+    }).join('');
+
+    document.getElementById('resultsCard').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function updateTotalDisplay(total, max) {
+    document.getElementById('totalScore').textContent = total + ' / ' + max;
+  }
+
+  function updateTotalFromInputs(max) {
+    var sum = 0;
+    document.querySelectorAll('.mark-input').forEach(function (i) { sum += Number(i.value) || 0; });
+    updateTotalDisplay(sum, max);
+  }
+
+  function saveCorrections() {
+    var edits = [];
+    document.querySelectorAll('.mark-input').forEach(function (i) {
+      edits.push({ result_id: i.dataset.resultId, marks_awarded: Number(i.value) || 0 });
+    });
+    var btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Saving…';
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        btn.disabled = false;
+        btn.textContent = 'Save Corrections';
+        document.getElementById('saveStatus').innerHTML = '<div class="status status-ok">Saved (' + res.updated + ' correction' + (res.updated === 1 ? '' : 's') + ' applied).</div>';
+      })
+      .withFailureHandler(function (err) {
+        btn.disabled = false;
+        btn.textContent = 'Save Corrections';
+        document.getElementById('saveStatus').innerHTML = '<div class="status status-error">' + (err.message || err) + '</div>';
+      })
+      .saveGradingOverrides(edits);
+  }
+
+  function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+</script>

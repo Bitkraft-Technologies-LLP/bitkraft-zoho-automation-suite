@@ -1,0 +1,134 @@
+<style>
+  :root {
+    --bg: #f6f7fb;
+    --card: #ffffff;
+    --text: #1c2331;
+    --muted: #6b7280;
+    --primary: #2f6fed;
+    --primary-dark: #1f4fbf;
+    --border: #e3e6ee;
+    --good: #1f9d55;
+    --warn: #d97706;
+    --bad: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 16px;
+  }
+  .wrap {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 16px 16px 40px;
+  }
+  h1 { font-size: 1.35rem; margin: 4px 0 2px; }
+  h2 { font-size: 1.05rem; margin: 18px 0 8px; }
+  .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 16px; }
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+  }
+  .topbar a { color: var(--primary); text-decoration: none; font-weight: 600; font-size: 0.95rem; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .nav-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 16px;
+    text-decoration: none;
+    color: var(--text);
+    font-weight: 600;
+    font-size: 1.05rem;
+  }
+  .nav-card .desc { font-weight: 400; color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
+  .nav-card .arrow { color: var(--primary); font-size: 1.3rem; }
+  label { display: block; font-weight: 600; font-size: 0.9rem; margin: 12px 0 4px; }
+  input[type="text"], input[type="number"], select, textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 1rem;
+    background: #fff;
+    color: var(--text);
+  }
+  input[type="file"] { width: 100%; padding: 10px 0; }
+  .btn {
+    display: inline-block;
+    width: 100%;
+    text-align: center;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 13px 16px;
+    font-size: 1rem;
+    font-weight: 600;
+    margin-top: 16px;
+    cursor: pointer;
+  }
+  .btn:active { background: var(--primary-dark); }
+  .btn:disabled { background: #a9b6d8; }
+  .btn-secondary {
+    background: #fff;
+    color: var(--primary);
+    border: 1px solid var(--primary);
+  }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .radio-group { display: flex; gap: 12px; margin: 8px 0; }
+  .radio-group label { display: flex; align-items: center; gap: 6px; font-weight: 500; margin: 0; }
+  .pill {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .pill-good { background: #e6f7ec; color: var(--good); }
+  .pill-warn { background: #fef3e2; color: var(--warn); }
+  .pill-bad { background: #fdeaea; color: var(--bad); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; }
+  .muted { color: var(--muted); font-size: 0.85rem; }
+  .spinner {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid #fff;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: -3px;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .status { padding: 10px 12px; border-radius: 8px; font-size: 0.9rem; margin-top: 10px; }
+  .status-error { background: #fdeaea; color: var(--bad); }
+  .status-ok { background: #e6f7ec; color: var(--good); }
+  .thumb-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .thumb-row img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
+  a.doc-link {
+    display: block;
+    text-align: center;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--primary);
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: none;
+    margin-top: 8px;
+  }
+</style>
