@@ -15,6 +15,9 @@ var GRADING_INSTRUCTION = 'You are grading a Grade 5 IB-curriculum test paper. Y
   'reasoning. Never award any marks — partial or otherwise — for a question that is blank, not attempted, or ' +
   'not visible in the photos; only award marks for work you can actually see and read. If handwriting is ' +
   'unclear but present, say so in reasoning rather than guessing at the content. ' +
+  'marks_awarded must be fully consistent with your own reasoning: if reasoning states an answer or part is ' +
+  'fully correct, award that part\'s full marks per the marking notes — never adjust a score toward a middle ' +
+  'value, hedge, or "compress" it for calibration reasons once you have judged it correct. ' +
   'Respond with valid JSON only, no other text.';
 
 /**
@@ -34,6 +37,11 @@ function gradeSubmission(paperId, student, images) {
   var orderedQuestions = questionIds.map(function (id) { return questionsById[id]; }).filter(Boolean);
 
   var aiResults = callGeminiForGrading_(orderedQuestions, images);
+
+  // Re-grading the same paper for the same student replaces the previous
+  // result rather than stacking on top of it — otherwise Past Submissions
+  // and the Progress dashboard double-count every re-grade.
+  deleteResultsForPaperStudent_(paperId, student);
 
   var today = todayString_();
   var resultsSheet = getSheet_(SHEET_RESULTS);
@@ -67,6 +75,57 @@ function gradeSubmission(paperId, student, images) {
   });
 
   return { paperId: paperId, student: student, total: total, maxTotal: maxTotal, breakdown: breakdown };
+}
+
+/** Removes any existing Results rows for this exact paper+student before a (re-)grade writes fresh ones. */
+function deleteResultsForPaperStudent_(paperId, student) {
+  var sheet = getSheet_(SHEET_RESULTS);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  var headers = SHEET_HEADERS[SHEET_RESULTS];
+  var paperCol = headers.indexOf('paper_id');
+  var studentCol = headers.indexOf('student');
+  var values = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+  for (var i = values.length - 1; i >= 0; i--) {
+    if (values[i][paperCol] === paperId && values[i][studentCol] === student) {
+      sheet.deleteRow(i + 2);
+    }
+  }
+}
+
+/**
+ * One-time cleanup, run manually from the Apps Script editor (function
+ * dropdown → dedupeResultsOnce → Run): removes the duplicate Results rows
+ * left behind before gradeSubmission() started replacing re-grades instead
+ * of stacking them. For each (paper_id, student, question_id) combination,
+ * keeps only the most recently appended row and deletes the rest.
+ */
+function dedupeResultsOnce() {
+  var sheet = getSheet_(SHEET_RESULTS);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { removed: 0 };
+  var headers = SHEET_HEADERS[SHEET_RESULTS];
+  var paperCol = headers.indexOf('paper_id');
+  var studentCol = headers.indexOf('student');
+  var questionCol = headers.indexOf('question_id');
+  var values = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+
+  var lastIndexForKey = {};
+  values.forEach(function (row, i) {
+    var key = row[paperCol] + '::' + row[studentCol] + '::' + row[questionCol];
+    lastIndexForKey[key] = i; // later occurrences overwrite earlier ones — appendRow always adds at the bottom
+  });
+
+  var removed = 0;
+  for (var i = values.length - 1; i >= 0; i--) {
+    var key = values[i][paperCol] + '::' + values[i][studentCol] + '::' + values[i][questionCol];
+    if (lastIndexForKey[key] !== i) {
+      sheet.deleteRow(i + 2);
+      removed++;
+    }
+  }
+  Logger.log('dedupeResultsOnce: removed %s duplicate row(s).', removed);
+  return { removed: removed };
 }
 
 function clampMarks_(value, max) {
