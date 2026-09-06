@@ -19,6 +19,11 @@
     <div id="status"></div>
   </div>
 
+  <div class="card" style="border-color:#d97706;">
+    <div class="muted" style="font-weight:600;color:#d97706;">Temporary debug — remove once the empty-paper-list bug is found</div>
+    <pre id="debugOutput" style="white-space:pre-wrap;font-size:12px;margin:6px 0 0;">(loading…)</pre>
+  </div>
+
   <div id="resultsCard" style="display:none;">
     <h2>Results — <span id="totalScore"></span></h2>
     <div class="card">
@@ -47,6 +52,7 @@
   function loadSetup() {
     google.script.run
       .withSuccessHandler(function (papers) {
+        document.getElementById('debugOutput').textContent = 'listPapersForGrading() returned: ' + JSON.stringify(papers);
         papers = papers || [];
         var sel = document.getElementById('paperSelect');
         if (!papers.length) {
@@ -57,7 +63,10 @@
           return '<option value="' + p.paper_id + '">' + p.paper_id + ' — ' + p.subject + ' (' + p.total_marks + ' marks)</option>';
         }).join('');
       })
-      .withFailureHandler(showError)
+      .withFailureHandler(function (err) {
+        document.getElementById('debugOutput').textContent = 'listPapersForGrading() FAILED: ' + JSON.stringify(err);
+        showError(err);
+      })
       .listPapersForGrading();
 
     google.script.run
