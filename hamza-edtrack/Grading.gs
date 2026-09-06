@@ -6,9 +6,16 @@
 
 var GRADING_INSTRUCTION = 'You are grading a Grade 5 IB-curriculum test paper. You will see photos of a ' +
   "student's handwritten answers and the official answer key with marking notes. For each question, award " +
-  'marks strictly per the marking notes (partial credit where the notes allow it), quote the exact text you ' +
-  'read from the photo for that question, and briefly explain why marks were or were not given. If ' +
-  'handwriting is unclear, say so rather than guessing. Respond with valid JSON only, no other text.';
+  'marks strictly per the marking notes (partial credit where the notes explicitly allow it). ' +
+  'Marks must be whole numbers, except where a marking note explicitly describes a half-mark increment ' +
+  '(e.g. "½ each") — never award any other fractional or decimal value. ' +
+  'For every question, quote the exact text you read from the photo in extracted_answer — this field must ' +
+  'never be left empty; if you genuinely cannot find that question anywhere in the photos, set ' +
+  'extracted_answer to "(not visible in the submitted photos)", award exactly 0 marks, and say so in ' +
+  'reasoning. Never award any marks — partial or otherwise — for a question that is blank, not attempted, or ' +
+  'not visible in the photos; only award marks for work you can actually see and read. If handwriting is ' +
+  'unclear but present, say so in reasoning rather than guessing at the content. ' +
+  'Respond with valid JSON only, no other text.';
 
 /**
  * images: [{ data: base64String, mimeType: 'image/jpeg' }, ...] in page order.
