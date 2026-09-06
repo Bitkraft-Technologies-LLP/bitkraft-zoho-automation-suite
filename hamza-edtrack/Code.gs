@@ -39,7 +39,7 @@ var DEFAULT_CONFIG = {
  */
 function doGet(e) {
   ensureSheets_();
-  var pages = { index: 'Index', generate: 'Generate', grade: 'Grade', dashboard: 'Dashboard' };
+  var pages = { index: 'Index', generate: 'Generate', grade: 'Grade', dashboard: 'Progress' };
   var page = (e && e.parameter && e.parameter.page) || 'index';
   var file = pages[page] || 'Index';
   return HtmlService.createTemplateFromFile(file)

@@ -28,7 +28,10 @@ hamza-edtrack/
   Index.html            — nav shell
   Generate.html         — "Generate Paper" page
   Grade.html            — "Grade a Paper" page (camera capture + review table)
-  Dashboard.html        — "Progress" page (Chart.js)
+  Progress.html         — "Progress" page (Chart.js). Named Progress.html, not
+                          Dashboard.html, because Apps Script requires unique
+                          file basenames across the whole project regardless
+                          of extension, and Dashboard.gs already claims it.
   Styles.html           — shared mobile-first CSS, pulled in via include()
   seed/questions.json   — the 51 seeded questions, parsed from the Term 1 papers
 ```
