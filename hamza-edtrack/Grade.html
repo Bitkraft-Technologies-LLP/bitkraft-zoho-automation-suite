@@ -1,43 +1,57 @@
 <?!= include('Styles'); ?>
 <div class="wrap">
-  <div class="topbar"><a href="<?= getWebAppUrl_() ?>" target="_top">‹ Home</a></div>
+  <div class="topbar">
+    <a href="<?= getWebAppUrl_() ?>" target="_top">‹ Home</a>
+    <a class="brand" href="<?= getWebAppUrl_() ?>" target="_top" style="text-decoration:none;">
+      <?!= include('BrandMark'); ?>
+      <span class="brand-word">TG4P</span>
+    </a>
+  </div>
   <h1>Grade a Paper</h1>
   <div class="subtitle">Photos are used only for this grading request — nothing is saved. To grade a sheet a student photographed and sent you on WhatsApp, save their photo(s) to your camera roll first, then pick "Photo Library" below instead of the camera.</div>
 
-  <div class="card" id="setupCard">
-    <label for="paperSelect">Paper</label>
-    <select id="paperSelect"></select>
+  <div class="desktop-grid">
+    <div class="card" id="setupCard">
+      <div id="loadingLine" class="loading-line"><span class="spinner-dark"></span>Loading papers…</div>
+      <div id="formFields" style="display:none;">
+        <label for="paperSelect">Paper</label>
+        <select id="paperSelect"></select>
 
-    <label for="studentName">Student</label>
-    <input type="text" id="studentName" />
+        <label for="studentName">Student</label>
+        <input type="text" id="studentName" />
 
-    <label for="photos">Photos of the answer sheet (1–4 pages)</label>
-    <input type="file" id="photos" accept="image/*" capture="environment" multiple />
-    <div class="thumb-row" id="thumbs"></div>
+        <label for="photos">Photos of the answer sheet (1–4 pages)</label>
+        <input type="file" id="photos" accept="image/*" capture="environment" multiple />
+        <div class="thumb-row" id="thumbs"></div>
 
-    <button class="btn" id="gradeBtn" onclick="submitGrading()">Grade Submission</button>
-    <div id="status"></div>
-  </div>
-
-  <div id="resultsCard" style="display:none;">
-    <h2>Results — <span id="totalScore"></span></h2>
-    <div class="card">
-      <table>
-        <thead><tr><th>Q</th><th style="width:60px;">Marks</th><th>AI reasoning</th></tr></thead>
-        <tbody id="resultsBody"></tbody>
-      </table>
-      <button class="btn" id="saveBtn" onclick="saveCorrections()">Save Corrections</button>
-      <div id="saveStatus"></div>
+        <button class="btn" id="gradeBtn" onclick="submitGrading()">Grade Submission</button>
+        <div id="status"></div>
+      </div>
     </div>
-  </div>
 
-  <h2>Past Submissions</h2>
-  <div class="card">
-    <div id="pastSubmissionsEmpty" class="muted" style="display:none;">Nothing graded yet.</div>
-    <table id="pastSubmissionsTable" style="display:none;">
-      <thead><tr><th>Paper</th><th>Score</th><th></th></tr></thead>
-      <tbody id="pastSubmissionsBody"></tbody>
-    </table>
+    <div>
+      <div id="resultsCard" style="display:none;">
+        <h2>Results — <span id="totalScore"></span></h2>
+        <div class="card">
+          <table>
+            <thead><tr><th>Q</th><th style="width:60px;">Marks</th><th>AI reasoning</th></tr></thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+          <button class="btn" id="saveBtn" onclick="saveCorrections()">Save Corrections</button>
+          <div id="saveStatus"></div>
+        </div>
+      </div>
+
+      <h2>Past Submissions</h2>
+      <div class="card">
+        <div id="pastSubmissionsLoading" class="loading-line"><span class="spinner-dark"></span>Loading…</div>
+        <div id="pastSubmissionsEmpty" class="muted" style="display:none;">Nothing graded yet.</div>
+        <table id="pastSubmissionsTable" style="display:none;">
+          <thead><tr><th>Paper</th><th>Score</th><th></th></tr></thead>
+          <tbody id="pastSubmissionsBody"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -51,11 +65,13 @@
         var sel = document.getElementById('paperSelect');
         if (!papers.length) {
           sel.innerHTML = '<option value="">No papers yet — generate one first</option>';
-          return;
+        } else {
+          sel.innerHTML = papers.map(function (p) {
+            return '<option value="' + p.paper_id + '">' + p.paper_id + ' — ' + p.subject + ' (' + p.total_marks + ' marks)</option>';
+          }).join('');
         }
-        sel.innerHTML = papers.map(function (p) {
-          return '<option value="' + p.paper_id + '">' + p.paper_id + ' — ' + p.subject + ' (' + p.total_marks + ' marks)</option>';
-        }).join('');
+        document.getElementById('loadingLine').style.display = 'none';
+        document.getElementById('formFields').style.display = 'block';
       })
       .withFailureHandler(showError)
       .listPapersForGrading();
@@ -77,6 +93,7 @@
 
   function renderPastSubmissions(subs) {
     subs = subs || [];
+    document.getElementById('pastSubmissionsLoading').style.display = 'none';
     document.getElementById('pastSubmissionsEmpty').style.display = subs.length ? 'none' : 'block';
     document.getElementById('pastSubmissionsTable').style.display = subs.length ? 'table' : 'none';
     document.getElementById('pastSubmissionsBody').innerHTML = subs.map(function (s, i) {
@@ -158,6 +175,8 @@
   }
 
   function showError(err) {
+    document.getElementById('loadingLine').style.display = 'none';
+    document.getElementById('pastSubmissionsLoading').style.display = 'none';
     document.getElementById('status').innerHTML = '<div class="status status-error">' + (err.message || err) + '</div>';
   }
 

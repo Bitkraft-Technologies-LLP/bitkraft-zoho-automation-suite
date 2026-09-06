@@ -129,6 +129,67 @@ function draftQuestions(config) {
 }
 
 /**
+ * Drafts across every strand in one pass instead of picking one strand at a
+ * time: `totalCount` questions are distributed proportional to each
+ * strand's syllabus weight (same weights Generate Paper uses), then
+ * draftQuestions() runs once per strand with its share. Returns the
+ * combined candidate list (each question already tagged with its strand)
+ * plus any per-strand failures, so a failure in one strand doesn't lose the
+ * others' results.
+ */
+function autoDraftForSubject(subject, totalCount, difficulty) {
+  var strands = getStrandsForSubject(subject);
+  var weightSum = strands.reduce(function (s, x) { return s + x.defaultWeight; }, 0);
+  if (weightSum === 0) throw new Error('No strand weights configured for ' + subject);
+
+  var n = Math.max(strands.length, Math.min(Number(totalCount) || strands.length, 60));
+  var allocations = strands.map(function (s) {
+    return { strand: s.strand, count: Math.max(1, Math.round(n * s.defaultWeight / weightSum)) };
+  });
+
+  var drafted = [];
+  var errors = [];
+  allocations.forEach(function (a) {
+    try {
+      drafted = drafted.concat(draftQuestions({ subject: subject, strand: a.strand, count: a.count, difficulty: difficulty }));
+    } catch (e) {
+      errors.push({ strand: a.strand, message: e.message });
+    }
+  });
+
+  return { drafted: drafted, errors: errors };
+}
+
+/**
+ * Auto-fallback for the "avoid reuse" shortfall prompt on the Generate page:
+ * when a strand doesn't have enough never-used marks to hit its target, this
+ * drafts just enough new questions to cover the gap and saves them straight
+ * to the bank (no manual review step — the parent already opted into this by
+ * choosing "draft new questions" at the prompt). shortfalls: the array
+ * returned by checkFreshQuestionAvailability().shortfalls.
+ */
+function draftForShortfalls(subject, shortfalls, difficulty) {
+  var saved = [];
+  var errors = [];
+  (shortfalls || []).forEach(function (sf) {
+    var strand = sf.strand;
+    var existing = getQuestionsBySubject_(subject).filter(function (q) { return q.strand === strand; });
+    var avgMarks = existing.length
+      ? existing.reduce(function (s, q) { return s + Number(q.marks); }, 0) / existing.length
+      : 2;
+    var count = Math.max(2, Math.min(Math.ceil(sf.shortBy / avgMarks), 15));
+    try {
+      var drafted = draftQuestions({ subject: subject, strand: strand, count: count, difficulty: difficulty });
+      var result = saveDraftedQuestions(subject, drafted);
+      saved = saved.concat(drafted.map(function (q, i) { return { strand: strand, id: result.ids[i] }; }));
+    } catch (e) {
+      errors.push({ strand: strand, message: e.message });
+    }
+  });
+  return { saved: saved, errors: errors };
+}
+
+/**
  * Appends parent-approved drafted questions to QuestionBank with freshly
  * generated ids. questions: array shaped like draftQuestions()'s output.
  */

@@ -1,23 +1,41 @@
 <?!= include('Styles'); ?>
 <div class="wrap">
-  <div class="topbar"><a href="<?= getWebAppUrl_() ?>" target="_top">‹ Home</a></div>
+  <div class="topbar">
+    <a href="<?= getWebAppUrl_() ?>" target="_top">‹ Home</a>
+    <a class="brand" href="<?= getWebAppUrl_() ?>" target="_top" style="text-decoration:none;">
+      <?!= include('BrandMark'); ?>
+      <span class="brand-word">TG4P</span>
+    </a>
+  </div>
   <h1>Settings</h1>
-  <div class="subtitle">Student name and which Gemini model grades/drafts questions.</div>
+  <div class="subtitle">Student name, which Gemini model grades/drafts questions, and paper-generation policy.</div>
 
   <div class="card">
-    <label for="studentName">Student</label>
-    <input type="text" id="studentName" />
+    <div id="loadingLine" class="loading-line"><span class="spinner-dark"></span>Loading settings…</div>
+    <div id="formFields" style="display:none;">
+      <label for="studentName">Student</label>
+      <input type="text" id="studentName" />
 
-    <label for="modelSelect">Gemini model</label>
-    <select id="modelSelect"></select>
-    <div id="customModelWrap" style="display:none;">
-      <label for="customModel">Model id</label>
-      <input type="text" id="customModel" placeholder="e.g. gemini-3.8-flash" />
-    </div>
-    <div class="muted" style="margin-top:4px;">
-      If grading keeps failing with a "high demand" (503) error, switching to a different model here can help —
-      different models have separate capacity. Model ids change over time; pick "Other (type below)" to enter
-      one directly from <a href="https://ai.google.dev/gemini-api/docs/models" target="_blank">Google's model list</a>.
+      <label for="modelSelect">Gemini model</label>
+      <select id="modelSelect"></select>
+      <div id="customModelWrap" style="display:none;">
+        <label for="customModel">Model id</label>
+        <input type="text" id="customModel" placeholder="e.g. gemini-3.8-flash" />
+      </div>
+      <div class="muted" style="margin-top:4px;">
+        If grading keeps failing with a "high demand" (503) error, switching to a different model here can help —
+        different models have separate capacity. Model ids change over time; pick "Other (type below)" to enter
+        one directly from <a href="https://ai.google.dev/gemini-api/docs/models" target="_blank">Google's model list</a>.
+      </div>
+
+      <label style="display:flex; align-items:center; gap:8px; margin-top:16px;">
+        <input type="checkbox" id="avoidReuse" style="width:auto;" />
+        Avoid reusing questions already featured in a previous paper
+      </label>
+      <div class="muted" style="margin-top:2px;">
+        When on, Generate Paper only pulls never-before-used questions where possible. If a strand doesn't have
+        enough fresh ones, you'll be asked whether to reuse older questions or draft new ones first.
+      </div>
     </div>
 
     <button class="btn" id="saveBtn" onclick="saveSettings()">Save Settings</button>
@@ -33,6 +51,7 @@
       .withSuccessHandler(function (settings) {
         settings = settings || {};
         document.getElementById('studentName').value = settings.studentName || 'Hamza';
+        document.getElementById('avoidReuse').checked = !!settings.avoidReuse;
         var models = settings.availableModels || [];
         var current = settings.geminiModel || '';
         var sel = document.getElementById('modelSelect');
@@ -46,6 +65,8 @@
           document.getElementById('customModel').value = current;
         }
         toggleCustomModel();
+        document.getElementById('loadingLine').style.display = 'none';
+        document.getElementById('formFields').style.display = 'block';
       })
       .withFailureHandler(showError)
       .getSettings();
@@ -62,6 +83,7 @@
   });
 
   function showError(err) {
+    document.getElementById('loadingLine').style.display = 'none';
     document.getElementById('status').innerHTML = '<div class="status status-error">' + (err.message || err) + '</div>';
   }
 
@@ -87,7 +109,8 @@
       })
       .saveSettings({
         studentName: document.getElementById('studentName').value,
-        geminiModel: geminiModel
+        geminiModel: geminiModel,
+        avoidReuse: document.getElementById('avoidReuse').checked
       });
   }
 </script>

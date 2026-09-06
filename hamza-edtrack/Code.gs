@@ -1,5 +1,5 @@
 /**
- * Hamza EdTrack — shared bootstrap, routing, and small helpers used by every
+ * TG4P (Test Generator 4 Parents) — shared bootstrap, routing, and small helpers used by every
  * other .gs file. Keep this file free of feature-specific logic.
  */
 
@@ -57,10 +57,19 @@ function doGet(e) {
   var file = pages[page] || 'Index';
   return HtmlService.createTemplateFromFile(file)
     .evaluate()
-    .setTitle('Hamza EdTrack')
+    .setTitle('TG4P — Test Generator 4 Parents')
+    .setFaviconUrl(FAVICON_DATA_URL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
+
+/** Same badge as BrandMark.html, inlined as a data URI since setFaviconUrl() needs a URL, not a file include. */
+var FAVICON_DATA_URL = 'data:image/svg+xml,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">' +
+  '<rect width="40" height="40" rx="10" fill="#2f6fed"/>' +
+  '<path d="M11 20.5l5.5 5.5L29 13.5" stroke="white" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>' +
+  '</svg>'
+);
 
 /**
  * The canonical /exec URL for this deployment. Nav links must use this
@@ -157,14 +166,16 @@ function getSettings() {
   return {
     studentName: getConfigValue_('student_name', 'Hamza'),
     geminiModel: getGeminiModel_(),
-    availableModels: AVAILABLE_GEMINI_MODELS
+    availableModels: AVAILABLE_GEMINI_MODELS,
+    avoidReuse: getConfigValue_('avoid_reuse', 'false') === 'true'
   };
 }
 
-/** settings: { studentName, geminiModel }. */
+/** settings: { studentName, geminiModel, avoidReuse }. */
 function saveSettings(settings) {
   setConfigValue_('student_name', (settings.studentName || 'Hamza').trim());
   setConfigValue_('gemini_model', (settings.geminiModel || GEMINI_DEFAULT_MODEL).trim());
+  setConfigValue_('avoid_reuse', settings.avoidReuse ? 'true' : 'false');
   return { saved: true };
 }
 

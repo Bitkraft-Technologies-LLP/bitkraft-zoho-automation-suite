@@ -1,42 +1,68 @@
 <?!= include('Styles'); ?>
 <div class="wrap">
-  <div class="topbar"><a href="<?= getWebAppUrl_() ?>" target="_top">‹ Home</a></div>
+  <div class="topbar">
+    <a href="<?= getWebAppUrl_() ?>" target="_top">‹ Home</a>
+    <a class="brand" href="<?= getWebAppUrl_() ?>" target="_top" style="text-decoration:none;">
+      <?!= include('BrandMark'); ?>
+      <span class="brand-word">TG4P</span>
+    </a>
+  </div>
   <h1>Draft Questions</h1>
-  <div class="subtitle">AI-drafted from the Term 1 syllabus topics for the chosen strand. Review and edit before saving — nothing is added to the bank until you save it.</div>
+  <div class="subtitle">AI-drafted from the Term 1 syllabus topics. Review and edit before saving — nothing is added to the bank until you save it.</div>
 
-  <div class="card">
-    <label for="subject">Subject</label>
-    <select id="subject"></select>
+  <div class="desktop-grid">
+    <div class="card">
+      <div id="loadingLine" class="loading-line"><span class="spinner-dark"></span>Loading subjects…</div>
+      <div id="formFields" style="display:none;">
+        <label for="subject">Subject</label>
+        <select id="subject"></select>
 
-    <label for="strand">Strand</label>
-    <select id="strand"></select>
-    <div id="topicsHint" class="muted" style="margin-top:4px;"></div>
+        <label>Mode</label>
+        <div class="radio-group">
+          <label><input type="radio" name="mode" value="strand" checked /> One strand</label>
+          <label><input type="radio" name="mode" value="auto" /> Auto-fill by weightage</label>
+        </div>
 
-    <div class="row">
-      <div>
-        <label for="count">How many</label>
-        <input type="number" id="count" value="5" min="1" max="15" />
-      </div>
-      <div>
-        <label for="difficulty">Difficulty</label>
-        <select id="difficulty">
-          <option value="1">1 — warm-up</option>
-          <option value="2" selected>2 — standard</option>
-          <option value="3">3 — multi-step</option>
-        </select>
+        <div id="strandModeFields">
+          <label for="strand">Strand</label>
+          <select id="strand"></select>
+          <div id="topicsHint" class="muted" style="margin-top:4px;"></div>
+        </div>
+
+        <div id="autoModeFields" style="display:none;">
+          <label for="autoCount">Total questions to draft</label>
+          <input type="number" id="autoCount" value="20" min="4" max="60" />
+          <div class="muted" style="margin-top:2px;">Split across every strand in proportion to its syllabus weight — the same weighting Generate Paper uses.</div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="count">How many</label>
+            <input type="number" id="count" value="5" min="1" max="15" />
+          </div>
+          <div>
+            <label for="difficulty">Difficulty</label>
+            <select id="difficulty">
+              <option value="1">1 — warm-up</option>
+              <option value="2" selected>2 — standard</option>
+              <option value="3">3 — multi-step</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn" id="draftBtn" onclick="submitDraft()">Draft Questions</button>
+        <div id="status"></div>
       </div>
     </div>
 
-    <button class="btn" id="draftBtn" onclick="submitDraft()">Draft Questions</button>
-    <div id="status"></div>
-  </div>
-
-  <div id="reviewCard" style="display:none;">
-    <h2>Review before saving</h2>
-    <div id="reviewList"></div>
-    <div class="card">
-      <button class="btn" id="saveBtn" onclick="saveSelected()">Save Selected to Question Bank</button>
-      <div id="saveStatus"></div>
+    <div id="reviewCard" style="display:none;">
+      <h2>Review before saving</h2>
+      <div id="reviewErrors"></div>
+      <div id="reviewList"></div>
+      <div class="card">
+        <button class="btn" id="saveBtn" onclick="saveSelected()">Save Selected to Question Bank</button>
+        <div id="saveStatus"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -52,6 +78,8 @@
         var sel = document.getElementById('subject');
         sel.innerHTML = subjects.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
         loadStrands();
+        document.getElementById('loadingLine').style.display = 'none';
+        document.getElementById('formFields').style.display = 'block';
       })
       .withFailureHandler(showError)
       .getAvailableSubjects();
@@ -89,29 +117,51 @@
       .getSyllabusTopics(subject, strand);
   }
 
+  function currentMode() {
+    return document.querySelector('input[name="mode"]:checked').value;
+  }
+
+  function toggleMode() {
+    var isAuto = currentMode() === 'auto';
+    document.getElementById('strandModeFields').style.display = isAuto ? 'none' : 'block';
+    document.getElementById('autoModeFields').style.display = isAuto ? 'block' : 'none';
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     loadSubjects();
     document.getElementById('subject').addEventListener('change', loadStrands);
     document.getElementById('strand').addEventListener('change', loadTopicsHint);
+    document.querySelectorAll('input[name="mode"]').forEach(function (r) { r.addEventListener('change', toggleMode); });
   });
 
   function submitDraft() {
-    var config = {
-      subject: document.getElementById('subject').value,
-      strand: document.getElementById('strand').value,
-      count: Number(document.getElementById('count').value) || 5,
-      difficulty: Number(document.getElementById('difficulty').value) || 2
-    };
+    var subject = document.getElementById('subject').value;
+    var difficulty = Number(document.getElementById('difficulty').value) || 2;
+    var mode = currentMode();
 
     var btn = document.getElementById('draftBtn');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>Drafting…';
     document.getElementById('status').innerHTML = '';
 
-    google.script.run
-      .withSuccessHandler(function (res) { onDrafted(config.subject, res); resetBtn(); })
-      .withFailureHandler(function (err) { showError(err); resetBtn(); })
-      .draftQuestions(config);
+    if (mode === 'auto') {
+      var totalCount = Number(document.getElementById('autoCount').value) || 20;
+      google.script.run
+        .withSuccessHandler(function (res) { onAutoDrafted(subject, res); resetBtn(); })
+        .withFailureHandler(function (err) { showError(err); resetBtn(); })
+        .autoDraftForSubject(subject, totalCount, difficulty);
+    } else {
+      var config = {
+        subject: subject,
+        strand: document.getElementById('strand').value,
+        count: Number(document.getElementById('count').value) || 5,
+        difficulty: difficulty
+      };
+      google.script.run
+        .withSuccessHandler(function (res) { onDrafted(res); resetBtn(); })
+        .withFailureHandler(function (err) { showError(err); resetBtn(); })
+        .draftQuestions(config);
+    }
   }
 
   function resetBtn() {
@@ -121,15 +171,30 @@
   }
 
   function showError(err) {
+    document.getElementById('loadingLine').style.display = 'none';
     document.getElementById('status').innerHTML = '<div class="status status-error">' + (err.message || err) + '</div>';
   }
 
-  function onDrafted(subject, questions) {
-    drafted = questions = questions || [];
+  function onDrafted(questions) {
+    renderReview(questions || [], []);
+  }
+
+  function onAutoDrafted(subject, res) {
+    res = res || {};
+    renderReview(res.drafted || [], res.errors || []);
+  }
+
+  function renderReview(questions, errors) {
+    drafted = questions;
     document.getElementById('reviewCard').style.display = 'block';
+    document.getElementById('reviewErrors').innerHTML = errors.length
+      ? '<div class="status status-error">Some strands failed to draft: ' +
+          errors.map(function (e) { return e.strand + ' (' + e.message + ')'; }).join('; ') + '</div>'
+      : '';
     document.getElementById('reviewList').innerHTML = questions.map(function (q, i) {
       return '<div class="card">' +
-        '<label><input type="checkbox" class="include-box" data-index="' + i + '" checked /> Include</label>' +
+        '<label><input type="checkbox" class="include-box" data-index="' + i + '" checked /> Include' +
+          (q.strand ? ' <span class="pill pill-good">' + escapeHtml(q.strand) + '</span>' : '') + '</label>' +
         '<label>Question</label><textarea rows="3" data-field="question_text" data-index="' + i + '">' + escapeHtml(q.question_text) + '</textarea>' +
         '<div class="row">' +
           '<div><label>Marks</label><input type="number" data-field="marks" data-index="' + i + '" value="' + q.marks + '" min="1" /></div>' +
@@ -139,7 +204,7 @@
         '<label>Answer</label><textarea rows="2" data-field="answer_text" data-index="' + i + '">' + escapeHtml(q.answer_text) + '</textarea>' +
         '<label>Marking notes</label><textarea rows="2" data-field="marking_notes" data-index="' + i + '">' + escapeHtml(q.marking_notes) + '</textarea>' +
         '</div>';
-    }).join('');
+    }).join('') || '<div class="muted">Nothing drafted.</div>';
     document.getElementById('reviewCard').scrollIntoView({ behavior: 'smooth' });
   }
 

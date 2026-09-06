@@ -10,19 +10,27 @@ var STRAND_ORDER = {
   Marathi: ['Reading & Comprehension', 'Grammar', 'Writing']
 };
 
-/**
- * config: { subject, term, totalMarks, mode: 'auto'|'manual', strandTargets: {strand: marks} (manual only) }
- * Returns { paperId, subject, term, totalMarks, docUrlPaper, docUrlKey, strandBreakdown }.
- */
-function generatePaper(config) {
+/** Shared by generatePaper() and checkFreshQuestionAvailability() so both agree on strand targets. */
+function resolveStrandTargets_(config) {
   var subject = config.subject;
   var term = config.term || 'Term 1';
   var totalMarks = Number(config.totalMarks) || 60;
   var strandOrder = STRAND_ORDER[subject] || Object.keys(getStrandWeights_(subject));
-
   var targets = config.mode === 'manual' && config.strandTargets
     ? config.strandTargets
     : computeAutoStrandTargets_(subject, totalMarks, strandOrder);
+  return { subject: subject, term: term, totalMarks: totalMarks, strandOrder: strandOrder, targets: targets };
+}
+
+/**
+ * config: { subject, term, totalMarks, mode: 'auto'|'manual', strandTargets: {strand: marks} (manual only),
+ *   avoidReuse: boolean (skip previously-featured questions where possible) }
+ * Returns { paperId, subject, term, totalMarks, docUrlPaper, docUrlKey, strandBreakdown }.
+ */
+function generatePaper(config) {
+  var resolved = resolveStrandTargets_(config);
+  var subject = resolved.subject, term = resolved.term, strandOrder = resolved.strandOrder, targets = resolved.targets;
+  var avoidReuse = !!config.avoidReuse;
 
   var chosenIds = [];
   var strandBreakdown = [];
@@ -31,7 +39,7 @@ function generatePaper(config) {
     var target = Number(targets[strand]) || 0;
     if (target <= 0) return;
     var candidates = getQuestionsBySubject_(subject).filter(function (q) { return q.strand === strand; });
-    var picked = pickQuestionsForTarget_(candidates, target);
+    var picked = pickQuestionsForTarget_(candidates, target, avoidReuse);
     var achieved = picked.reduce(function (sum, q) { return sum + Number(q.marks); }, 0);
     picked.forEach(function (q) { chosenIds.push(q.id); });
     strandBreakdown.push({ strand: strand, target: target, achieved: achieved, count: picked.length });
@@ -150,6 +158,32 @@ function getStrandsForSubject(subject) {
   return order.map(function (strand) { return { strand: strand, defaultWeight: Number(weights[strand]) || 0 }; });
 }
 
+/**
+ * Pre-flight check for the "avoid reuse" setting: for each strand with a
+ * nonzero target, compares the target against how many marks' worth of
+ * never-before-used (times_used === 0) questions actually exist. Lets the
+ * Generate page ask "reuse older questions, or draft new ones first?"
+ * before committing to a paper, instead of generatePaper() deciding alone.
+ */
+function checkFreshQuestionAvailability(config) {
+  var resolved = resolveStrandTargets_(config);
+  var shortfalls = [];
+
+  resolved.strandOrder.forEach(function (strand) {
+    var target = Number(resolved.targets[strand]) || 0;
+    if (target <= 0) return;
+    var candidates = getQuestionsBySubject_(resolved.subject).filter(function (q) { return q.strand === strand; });
+    var freshAvailable = candidates
+      .filter(function (q) { return Number(q.times_used) === 0; })
+      .reduce(function (sum, q) { return sum + Number(q.marks); }, 0);
+    if (freshAvailable < target) {
+      shortfalls.push({ strand: strand, target: target, freshAvailable: freshAvailable, shortBy: target - freshAvailable });
+    }
+  });
+
+  return { sufficient: shortfalls.length === 0, shortfalls: shortfalls, subject: resolved.subject };
+}
+
 /** Populates the "Previously Generated Papers" list on the Generate page. */
 function listPapers() {
   return readSheetAsObjects_(SHEET_PAPERS)
@@ -193,8 +227,12 @@ function computeAutoStrandTargets_(subject, totalMarks, strandOrder) {
  * order (bitmask search — candidate pools here are small, so this is cheap).
  * Falls back to a greedy best-effort selection if no exact combination exists.
  */
-function pickQuestionsForTarget_(candidates, target) {
-  var ranked = candidates.slice().sort(function (a, b) {
+function pickQuestionsForTarget_(candidates, target, avoidReuse) {
+  var pool = avoidReuse
+    ? candidates.filter(function (q) { return Number(q.times_used) === 0; })
+    : candidates;
+
+  var ranked = pool.slice().sort(function (a, b) {
     var usedDiff = (Number(a.times_used) || 0) - (Number(b.times_used) || 0);
     if (usedDiff !== 0) return usedDiff;
     var da = a.last_used_date ? String(a.last_used_date) : '';
@@ -250,7 +288,7 @@ function greedyFallback_(ranked, target) {
 }
 
 function buildPaperDoc_(paperId, subject, term, questions, strandOrder) {
-  var doc = DocumentApp.create('Hamza EdTrack - ' + subject + ' - ' + paperId + ' - Paper');
+  var doc = DocumentApp.create('TG4P - ' + subject + ' - ' + paperId + ' - Paper');
   var body = doc.getBody();
   var totalMarks = questions.reduce(function (s, q) { return s + Number(q.marks); }, 0);
 
@@ -296,7 +334,7 @@ function buildPaperDoc_(paperId, subject, term, questions, strandOrder) {
 }
 
 function buildAnswerKeyDoc_(paperId, subject, term, questions, strandOrder) {
-  var doc = DocumentApp.create('Hamza EdTrack - ' + subject + ' - ' + paperId + ' - Answer Key');
+  var doc = DocumentApp.create('TG4P - ' + subject + ' - ' + paperId + ' - Answer Key');
   var body = doc.getBody();
 
   body.appendParagraph('ANSWER KEY & MARKING SCHEME').setHeading(DocumentApp.ParagraphHeading.TITLE);

@@ -1,34 +1,49 @@
 <?!= include('Styles'); ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <div class="wrap">
-  <div class="topbar"><a href="<?= getWebAppUrl_() ?>" target="_top">‹ Home</a></div>
+  <div class="topbar">
+    <a href="<?= getWebAppUrl_() ?>" target="_top">‹ Home</a>
+    <a class="brand" href="<?= getWebAppUrl_() ?>" target="_top" style="text-decoration:none;">
+      <?!= include('BrandMark'); ?>
+      <span class="brand-word">TG4P</span>
+    </a>
+  </div>
   <h1>Progress</h1>
   <div class="subtitle">Chart.js on &lt;canvas&gt; — lighter than the Apps Script Charts service and reads fine on a phone screen.</div>
 
-  <div class="card">
-    <label for="subjectSelect">Subject</label>
-    <select id="subjectSelect"></select>
-  </div>
-
-  <div id="emptyState" class="card" style="display:none;">
-    <div class="muted">No graded results yet for this subject. Generate a paper and grade a submission to see progress here.</div>
-  </div>
-
-  <div id="content" style="display:none;">
-    <h2>Score over time</h2>
+  <div class="desktop-grid">
     <div class="card">
-      <canvas id="scoreChart" height="180"></canvas>
+      <div id="loadingLine" class="loading-line"><span class="spinner-dark"></span>Loading subjects…</div>
+      <div id="subjectField" style="display:none;">
+        <label for="subjectSelect">Subject</label>
+        <select id="subjectSelect"></select>
+      </div>
+
+      <div id="weakestWrap" style="margin-top:16px; display:none;">
+        <label style="margin-bottom:4px;">Weakest strands</label>
+        <div id="weakestList"></div>
+      </div>
     </div>
 
-    <h2>Weakest strands</h2>
-    <div id="weakestList"></div>
+    <div>
+      <div id="emptyState" class="card" style="display:none;">
+        <div class="muted">No graded results yet for this subject. Generate a paper and grade a submission to see progress here.</div>
+      </div>
 
-    <h2>All strands</h2>
-    <div class="card">
-      <table>
-        <thead><tr><th>Strand</th><th>Attempts</th><th>Recent avg</th><th>Overall</th></tr></thead>
-        <tbody id="strandBody"></tbody>
-      </table>
+      <div id="content" style="display:none;">
+        <h2>Score over time</h2>
+        <div class="card">
+          <canvas id="scoreChart" height="180"></canvas>
+        </div>
+
+        <h2>All strands</h2>
+        <div class="card">
+          <table>
+            <thead><tr><th>Strand</th><th>Attempts</th><th>Recent avg</th><th>Overall</th></tr></thead>
+            <tbody id="strandBody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -39,8 +54,11 @@
   function loadSubjects() {
     google.script.run
       .withSuccessHandler(function (subjects) {
+        subjects = subjects || [];
         var sel = document.getElementById('subjectSelect');
         sel.innerHTML = subjects.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
+        document.getElementById('loadingLine').style.display = 'none';
+        document.getElementById('subjectField').style.display = 'block';
         loadDashboard();
       })
       .withFailureHandler(showError)
@@ -48,8 +66,10 @@
   }
 
   function showError(err) {
+    document.getElementById('loadingLine').style.display = 'none';
     document.getElementById('emptyState').style.display = 'block';
     document.getElementById('content').style.display = 'none';
+    document.getElementById('weakestWrap').style.display = 'none';
     document.getElementById('emptyState').innerHTML = '<div class="status status-error">' + (err.message || err) + '</div>';
   }
 
@@ -77,10 +97,12 @@
     if (!data.timeSeries.length) {
       document.getElementById('emptyState').style.display = 'block';
       document.getElementById('content').style.display = 'none';
+      document.getElementById('weakestWrap').style.display = 'none';
       return;
     }
     document.getElementById('emptyState').style.display = 'none';
     document.getElementById('content').style.display = 'block';
+    document.getElementById('weakestWrap').style.display = 'block';
 
     var ctx = document.getElementById('scoreChart').getContext('2d');
     var labels = data.timeSeries.map(function (t) { return t.date + ' (' + t.paper_id + ')'; });

@@ -1,4 +1,4 @@
-# Hamza EdTrack
+# TG4P — Test Generator 4 Parents
 
 A personal Google Apps Script tool for tracking Hamza's (Grade 5, IB curriculum)
 test performance across Maths, English, Hindi and Marathi: generate papers
@@ -69,7 +69,7 @@ questions parsed from real Term 1 papers; Hindi and Marathi start with an
 empty bank — use **Draft Questions** to populate them before generating a
 paper for either.
 
-## Sheets schema (bound spreadsheet "Hamza EdTrack — Data")
+## Sheets schema (bound spreadsheet "TG4P — Data")
 
 - **QuestionBank** — id, subject, strand, sub_skill, difficulty, question_text, marks, answer_text, marking_notes, last_used_date, times_used
 - **Papers** — paper_id, subject, term, created_date, total_marks, question_ids, doc_url_paper, doc_url_key

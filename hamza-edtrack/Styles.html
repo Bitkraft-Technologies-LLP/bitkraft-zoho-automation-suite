@@ -31,10 +31,49 @@
   .topbar {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 8px;
     padding: 10px 0;
   }
   .topbar a { color: var(--primary); text-decoration: none; font-weight: 600; font-size: 0.95rem; }
+  .topbar .brand { gap: 8px; }
+  .topbar .brand-mark { width: 24px; height: 24px; }
+  .topbar .brand-word { font-size: 0.85rem; font-weight: 700; color: var(--text); letter-spacing: 0.02em; }
+
+  /* Brand lockup (icon + wordmark), used full-size on the home screen */
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-mark { flex-shrink: 0; display: block; }
+  .brand h1 { margin: 0; line-height: 1.1; }
+  .brand .brand-tagline { color: var(--muted); font-size: 0.82rem; margin-top: 1px; }
+
+  /* Wider viewports get a roomier canvas and side-by-side layout instead of
+     one long stack of cards — mobile keeps everything single-column. */
+  @media (min-width: 860px) {
+    .wrap { max-width: 1080px; padding: 24px 32px 56px; }
+    .nav-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .desktop-grid { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 24px; align-items: start; }
+    .desktop-grid > .card:first-child { position: sticky; top: 24px; }
+  }
+
+  /* Loading skeletons — shown in place of a dropdown/list while its
+     initial data fetch is still pending. */
+  .skeleton {
+    background: linear-gradient(90deg, var(--border) 25%, #eef0f6 37%, var(--border) 63%);
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease infinite;
+    border-radius: 8px;
+  }
+  @keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+  .loading-line { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.88rem; padding: 6px 0; }
+  .spinner-dark {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
   .card {
     background: var(--card);
     border: 1px solid var(--border);

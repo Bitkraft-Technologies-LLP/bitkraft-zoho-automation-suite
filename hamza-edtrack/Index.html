@@ -1,45 +1,53 @@
 <?!= include('Styles'); ?>
 <div class="wrap">
-  <h1>Hamza EdTrack</h1>
-  <div class="subtitle">Maths &amp; English test generator, grader and progress tracker</div>
-
-  <a class="card nav-card" href="<?= getWebAppUrl_() ?>?page=generate" target="_top">
+  <div class="brand" style="margin-bottom:18px;">
+    <?!= include('BrandMark'); ?>
     <div>
-      Generate Paper
-      <div class="desc">Create a new test from the question bank</div>
+      <h1>TG4P</h1>
+      <div class="brand-tagline">Test Generator 4 Parents</div>
     </div>
-    <div class="arrow">›</div>
-  </a>
+  </div>
+  <div class="subtitle">Maths, English, Hindi &amp; Marathi test generator, grader and progress tracker for Hamza</div>
 
-  <a class="card nav-card" href="<?= getWebAppUrl_() ?>?page=grade" target="_top">
-    <div>
-      Grade a Paper
-      <div class="desc">Photograph an answer sheet for AI grading</div>
-    </div>
-    <div class="arrow">›</div>
-  </a>
+  <div class="nav-grid">
+    <a class="card nav-card" href="<?= getWebAppUrl_() ?>?page=generate" target="_top">
+      <div>
+        Generate Paper
+        <div class="desc">Create a new test from the question bank</div>
+      </div>
+      <div class="arrow">›</div>
+    </a>
 
-  <a class="card nav-card" href="<?= getWebAppUrl_() ?>?page=dashboard" target="_top">
-    <div>
-      Progress
-      <div class="desc">Scores over time and weakest strands</div>
-    </div>
-    <div class="arrow">›</div>
-  </a>
+    <a class="card nav-card" href="<?= getWebAppUrl_() ?>?page=grade" target="_top">
+      <div>
+        Grade a Paper
+        <div class="desc">Photograph an answer sheet for AI grading</div>
+      </div>
+      <div class="arrow">›</div>
+    </a>
 
-  <a class="card nav-card" href="<?= getWebAppUrl_() ?>?page=draft" target="_top">
-    <div>
-      Draft Questions
-      <div class="desc">Grow the question bank with AI-drafted questions</div>
-    </div>
-    <div class="arrow">›</div>
-  </a>
+    <a class="card nav-card" href="<?= getWebAppUrl_() ?>?page=dashboard" target="_top">
+      <div>
+        Progress
+        <div class="desc">Scores over time and weakest strands</div>
+      </div>
+      <div class="arrow">›</div>
+    </a>
 
-  <a class="card nav-card" href="<?= getWebAppUrl_() ?>?page=settings" target="_top">
-    <div>
-      Settings
-      <div class="desc">Student name and Gemini model</div>
-    </div>
-    <div class="arrow">›</div>
-  </a>
+    <a class="card nav-card" href="<?= getWebAppUrl_() ?>?page=draft" target="_top">
+      <div>
+        Draft Questions
+        <div class="desc">Grow the question bank with AI-drafted questions</div>
+      </div>
+      <div class="arrow">›</div>
+    </a>
+
+    <a class="card nav-card" href="<?= getWebAppUrl_() ?>?page=settings" target="_top">
+      <div>
+        Settings
+        <div class="desc">Student name, Gemini model, reuse policy</div>
+      </div>
+      <div class="arrow">›</div>
+    </a>
+  </div>
 </div>
