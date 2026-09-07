@@ -27,6 +27,8 @@
           <label for="strand">Strand</label>
           <select id="strand"></select>
           <div id="topicsHint" class="muted" style="margin-top:4px;"></div>
+          <label for="count">How many</label>
+          <input type="number" id="count" value="5" min="1" max="15" />
         </div>
 
         <div id="autoModeFields" style="display:none;">
@@ -35,20 +37,15 @@
           <div class="muted" style="margin-top:2px;">Split across every strand in proportion to its syllabus weight — the same weighting Generate Paper uses.</div>
         </div>
 
-        <div class="row">
-          <div>
-            <label for="count">How many</label>
-            <input type="number" id="count" value="5" min="1" max="15" />
-          </div>
-          <div>
-            <label for="difficulty">Difficulty</label>
-            <select id="difficulty">
-              <option value="1">1 — warm-up</option>
-              <option value="2" selected>2 — standard</option>
-              <option value="3">3 — multi-step</option>
-            </select>
-          </div>
-        </div>
+        <label for="difficulty">Difficulty</label>
+        <select id="difficulty">
+          <option value="1">1 — warm-up</option>
+          <option value="2" selected>2 — standard</option>
+          <option value="3">3 — multi-step</option>
+        </select>
+
+        <label for="additionalInstructions">Additional instructions (optional)</label>
+        <textarea id="additionalInstructions" rows="2" placeholder="e.g. Focus on word problems, avoid negative numbers, make questions about cricket..."></textarea>
 
         <button class="btn" id="draftBtn" onclick="submitDraft()">Draft Questions</button>
         <div id="status"></div>
@@ -137,6 +134,7 @@
   function submitDraft() {
     var subject = document.getElementById('subject').value;
     var difficulty = Number(document.getElementById('difficulty').value) || 2;
+    var additionalInstructions = document.getElementById('additionalInstructions').value.trim();
     var mode = currentMode();
 
     var btn = document.getElementById('draftBtn');
@@ -149,13 +147,14 @@
       google.script.run
         .withSuccessHandler(function (res) { onAutoDrafted(subject, res); resetBtn(); })
         .withFailureHandler(function (err) { showError(err); resetBtn(); })
-        .autoDraftForSubject(subject, totalCount, difficulty);
+        .autoDraftForSubject(subject, totalCount, difficulty, additionalInstructions);
     } else {
       var config = {
         subject: subject,
         strand: document.getElementById('strand').value,
         count: Number(document.getElementById('count').value) || 5,
-        difficulty: difficulty
+        difficulty: difficulty,
+        additionalInstructions: additionalInstructions
       };
       google.script.run
         .withSuccessHandler(function (res) { onDrafted(res); resetBtn(); })

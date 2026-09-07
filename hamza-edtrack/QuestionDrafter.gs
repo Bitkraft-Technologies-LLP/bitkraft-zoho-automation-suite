@@ -45,16 +45,19 @@ var SYLLABUS_TOPICS = {
       'Nets of 3D shapes'
     ]
   },
+  // Per the Term 1 2026-27 Learning Expectations doc, only the "Assessment of
+  // Learning" (written-test) items belong here — Seen/Aural comprehension,
+  // comprehension-skills-in-isolation and Oxford Nelson spelling are marked
+  // "Ongoing & part of Assessment For Learning" (formative, not written-test).
   English: {
     'Reading Comprehension': [
-      'Seen comprehension', 'Unseen comprehension', 'Summarizing',
-      'Analyzing character, setting and plot', 'Inferencing', 'Drawing conclusions'
+      'Unseen passage comprehension — tests summarizing, analyzing character/setting/plot, inferencing, and drawing conclusions through the passage'
     ],
     'Grammar & Spelling': [
       'Punctuation (full stop, comma, question mark, apostrophe, exclamation mark, quotation mark)',
       'Parts of speech', 'Affirmative and negative sentences',
       'Degrees of comparison of adjectives', 'Interjections', 'Relative pronouns',
-      'Adverbs and their types', 'Oxford Nelson spelling (units 1-8 level)'
+      'Adverbs and their types'
     ],
     'Letter Writing': ['Writing an informal letter', 'Writing a formal letter'],
     'Descriptive Writing': ['Writing a paragraph / descriptive writing']
@@ -78,6 +81,53 @@ function getSyllabusTopics(subject, strand) {
   return (SYLLABUS_TOPICS[subject] && SYLLABUS_TOPICS[subject][strand]) || [];
 }
 
+/**
+ * The syllabus topic lists above are a hand-maintained fallback outline —
+ * they drift out of date whenever the school issues a new Term Learning
+ * Expectations document. The Settings page lets a parent upload that PDF
+ * once; from then on it's attached directly to every drafting request as
+ * the authoritative reference (see getSyllabusDocPart_()), and the topic
+ * lists above only matter when no document has been uploaded yet.
+ */
+function getOrCreateSyllabusFolder_() {
+  var folders = DriveApp.getFoldersByName('TG4P Syllabus Docs');
+  if (folders.hasNext()) return folders.next();
+  return DriveApp.createFolder('TG4P Syllabus Docs');
+}
+
+/** filename/mimeType/base64Data: from a client-side FileReader.readAsDataURL() upload. */
+function saveSyllabusDocument(filename, mimeType, base64Data) {
+  var oldFileId = getConfigValue_('syllabus_doc_file_id', '');
+  if (oldFileId) {
+    try { DriveApp.getFileById(oldFileId).setTrashed(true); } catch (e) { /* already gone */ }
+  }
+  var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType || 'application/pdf', filename);
+  var file = getOrCreateSyllabusFolder_().createFile(blob);
+  setConfigValue_('syllabus_doc_file_id', file.getId());
+  setConfigValue_('syllabus_doc_name', filename);
+  return { fileId: file.getId(), name: filename };
+}
+
+/** Populates the Settings page's "currently using" line. */
+function getSyllabusDocInfo() {
+  return {
+    configured: !!getConfigValue_('syllabus_doc_file_id', ''),
+    name: getConfigValue_('syllabus_doc_name', '')
+  };
+}
+
+/** Returns a Gemini "part" for the uploaded syllabus PDF, or null if none is configured yet. */
+function getSyllabusDocPart_() {
+  var fileId = getConfigValue_('syllabus_doc_file_id', '');
+  if (!fileId) return null;
+  try {
+    var blob = DriveApp.getFileById(fileId).getBlob();
+    return { inlineData: { mimeType: blob.getContentType() || 'application/pdf', data: Utilities.base64Encode(blob.getBytes()) } };
+  } catch (e) {
+    return null;
+  }
+}
+
 var DRAFT_SYSTEM_PROMPT = 'You are an experienced Grade 5 IB-curriculum teacher setting new test questions. ' +
   'Match the style, length and rigor of a real Grade 5 Term 1 assessment: short direct-answer items at ' +
   'difficulty 1, standard multi-part items at difficulty 2, multi-step word problems or extended writing tasks ' +
@@ -85,7 +135,7 @@ var DRAFT_SYSTEM_PROMPT = 'You are an experienced Grade 5 IB-curriculum teacher 
   'parent to award partial credit consistently. Respond with valid JSON only, no other text.';
 
 /**
- * config: { subject, strand, count, difficulty (1-3) }
+ * config: { subject, strand, count, difficulty (1-3), additionalInstructions (optional) }
  * Returns an array of candidate questions for on-screen review — nothing is saved yet.
  */
 function draftQuestions(config) {
@@ -100,15 +150,27 @@ function draftQuestions(config) {
     .filter(function (q) { return q.strand === strand; })
     .map(function (q) { return q.question_text; });
 
+  var syllabusPart = getSyllabusDocPart_();
+
   var userPrompt = 'Subject: ' + subject + '\nStrand: ' + strand + '\n' +
-    'Topics to draw from (use a mix, do not invent topics outside this list):\n- ' + topics.join('\n- ') + '\n\n' +
+    (syllabusPart
+      ? 'A reference PDF of the official current Term Learning Expectations document is attached — treat it as the ' +
+        'authoritative source for this subject/strand\'s exact topics. The list below is only a fallback outline; ' +
+        'prefer the attached document wherever it is more specific or differs.\n'
+      : '') +
+    'Topics to draw from (use a mix, do not invent topics outside this list' + (syllabusPart ? ' or the attached document' : '') +
+    '):\n- ' + topics.join('\n- ') + '\n\n' +
     'Write ' + count + ' NEW questions at difficulty ' + difficulty + ' (1=warm-up/recall, 2=standard, 3=multi-step/extended). ' +
     'Do not duplicate or lightly reword any of these existing questions:\n' +
     (existingTexts.length ? existingTexts.map(function (t) { return '- ' + t; }).join('\n') : '(none yet)') +
+    (config.additionalInstructions
+      ? '\n\nAdditional instructions from the parent — follow these, overriding the defaults above where they conflict:\n' + config.additionalInstructions
+      : '') +
     '\n\nRespond with a JSON array only, in this exact schema: ' +
     '[{"question_text": "...", "marks": 0, "answer_text": "...", "marking_notes": "...", "sub_skill": "...", "difficulty": ' + difficulty + '}]';
 
-  var text = callGemini_(DRAFT_SYSTEM_PROMPT, [{ text: userPrompt }]);
+  var parts = syllabusPart ? [syllabusPart, { text: userPrompt }] : [{ text: userPrompt }];
+  var text = callGemini_(DRAFT_SYSTEM_PROMPT, parts);
   var drafted = extractJsonArray_(text);
   if (!Array.isArray(drafted)) {
     throw new Error('Gemini did not return a question list — got: ' + JSON.stringify(drafted).substring(0, 300));
@@ -137,7 +199,7 @@ function draftQuestions(config) {
  * plus any per-strand failures, so a failure in one strand doesn't lose the
  * others' results.
  */
-function autoDraftForSubject(subject, totalCount, difficulty) {
+function autoDraftForSubject(subject, totalCount, difficulty, additionalInstructions) {
   var strands = getStrandsForSubject(subject);
   var weightSum = strands.reduce(function (s, x) { return s + x.defaultWeight; }, 0);
   if (weightSum === 0) throw new Error('No strand weights configured for ' + subject);
@@ -151,7 +213,9 @@ function autoDraftForSubject(subject, totalCount, difficulty) {
   var errors = [];
   allocations.forEach(function (a) {
     try {
-      drafted = drafted.concat(draftQuestions({ subject: subject, strand: a.strand, count: a.count, difficulty: difficulty }));
+      drafted = drafted.concat(draftQuestions({
+        subject: subject, strand: a.strand, count: a.count, difficulty: difficulty, additionalInstructions: additionalInstructions
+      }));
     } catch (e) {
       errors.push({ strand: a.strand, message: e.message });
     }
@@ -168,7 +232,7 @@ function autoDraftForSubject(subject, totalCount, difficulty) {
  * choosing "draft new questions" at the prompt). shortfalls: the array
  * returned by checkFreshQuestionAvailability().shortfalls.
  */
-function draftForShortfalls(subject, shortfalls, difficulty) {
+function draftForShortfalls(subject, shortfalls, difficulty, additionalInstructions) {
   var saved = [];
   var errors = [];
   (shortfalls || []).forEach(function (sf) {
@@ -179,7 +243,9 @@ function draftForShortfalls(subject, shortfalls, difficulty) {
       : 2;
     var count = Math.max(2, Math.min(Math.ceil(sf.shortBy / avgMarks), 15));
     try {
-      var drafted = draftQuestions({ subject: subject, strand: strand, count: count, difficulty: difficulty });
+      var drafted = draftQuestions({
+        subject: subject, strand: strand, count: count, difficulty: difficulty, additionalInstructions: additionalInstructions
+      });
       var result = saveDraftedQuestions(subject, drafted);
       saved = saved.concat(drafted.map(function (q, i) { return { strand: strand, id: result.ids[i] }; }));
     } catch (e) {

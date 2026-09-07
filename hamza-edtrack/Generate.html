@@ -41,6 +41,13 @@
         </label>
         <div class="muted" style="margin-top:2px;">Default comes from Settings — you can override it for this paper only.</div>
 
+        <label for="additionalInstructions">Additional instructions (optional)</label>
+        <textarea id="additionalInstructions" rows="2" placeholder="e.g. Keep word problems simple this time..."></textarea>
+        <div class="muted" style="margin-top:2px;">
+          Only applies when new questions get drafted to fill this paper (the "Draft new questions first" option below,
+          or the avoid-reuse shortfall flow) — sampling from the existing bank doesn't call the AI.
+        </div>
+
         <button class="btn" id="generateBtn" onclick="submitGenerate()">Generate Paper</button>
         <div id="status"></div>
       </div>
@@ -176,8 +183,9 @@
     var totalMarks = Number(document.getElementById('totalMarks').value) || 60;
     var mode = document.querySelector('input[name="mode"]:checked').value;
     var avoidReuse = document.getElementById('avoidReuse').checked;
+    var additionalInstructions = document.getElementById('additionalInstructions').value.trim();
 
-    var config = { subject: subject, term: term, totalMarks: totalMarks, mode: mode, avoidReuse: avoidReuse };
+    var config = { subject: subject, term: term, totalMarks: totalMarks, mode: mode, avoidReuse: avoidReuse, additionalInstructions: additionalInstructions };
     if (mode === 'manual') {
       var targets = {};
       document.querySelectorAll('.strand-input').forEach(function (i) { targets[i.dataset.strand] = Number(i.value) || 0; });
@@ -258,7 +266,7 @@
             btn.textContent = 'Draft new questions first';
             document.getElementById('shortfallStatus').innerHTML = '<div class="status status-error">' + (err.message || err) + '</div>';
           })
-          .draftForShortfalls(config.subject, check.shortfalls, 2);
+          .draftForShortfalls(config.subject, check.shortfalls, 2, config.additionalInstructions);
       })
       .withFailureHandler(function (err) {
         btn.disabled = false;

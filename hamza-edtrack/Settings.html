@@ -41,6 +41,20 @@
     <button class="btn" id="saveBtn" onclick="saveSettings()">Save Settings</button>
     <div id="status"></div>
   </div>
+
+  <h2>Syllabus document</h2>
+  <div class="card">
+    <div id="syllabusDocStatus" class="muted"></div>
+    <label for="syllabusDocFile" style="margin-top:10px;">Term Learning Expectations PDF</label>
+    <input type="file" id="syllabusDocFile" accept="application/pdf" />
+    <div class="muted" style="margin-top:4px;">
+      Uploaded once here, this PDF is attached automatically to every AI question-drafting request as the
+      authoritative reference — so drafted questions stay aligned with the school's actual current syllabus
+      instead of a hand-maintained topic list. Re-upload whenever the school issues a new one.
+    </div>
+    <button class="btn btn-secondary" id="uploadSyllabusBtn" onclick="uploadSyllabusDoc()" style="margin-top:10px;">Upload</button>
+    <div id="syllabusDocUploadStatus"></div>
+  </div>
 </div>
 
 <script>
@@ -79,8 +93,60 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     loadSettings();
+    loadSyllabusDocInfo();
     document.getElementById('modelSelect').addEventListener('change', toggleCustomModel);
   });
+
+  function loadSyllabusDocInfo() {
+    google.script.run
+      .withSuccessHandler(function (info) {
+        info = info || {};
+        document.getElementById('syllabusDocStatus').textContent = info.configured
+          ? 'Currently using: ' + info.name
+          : 'No syllabus document uploaded yet — drafting falls back to a built-in topic outline.';
+      })
+      .withFailureHandler(function () {})
+      .getSyllabusDocInfo();
+  }
+
+  function uploadSyllabusDoc() {
+    var fileInput = document.getElementById('syllabusDocFile');
+    var file = fileInput.files[0];
+    if (!file) {
+      document.getElementById('syllabusDocUploadStatus').innerHTML = '<div class="status status-error">Choose a PDF first.</div>';
+      return;
+    }
+
+    var btn = document.getElementById('uploadSyllabusBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Uploading…';
+    document.getElementById('syllabusDocUploadStatus').innerHTML = '';
+
+    var reader = new FileReader();
+    reader.onload = function () {
+      var result = reader.result;
+      var base64 = result.substring(result.indexOf(',') + 1);
+      google.script.run
+        .withSuccessHandler(function (res) {
+          btn.disabled = false;
+          btn.textContent = 'Upload';
+          document.getElementById('syllabusDocUploadStatus').innerHTML = '<div class="status status-ok">Saved: ' + res.name + '</div>';
+          loadSyllabusDocInfo();
+        })
+        .withFailureHandler(function (err) {
+          btn.disabled = false;
+          btn.textContent = 'Upload';
+          document.getElementById('syllabusDocUploadStatus').innerHTML = '<div class="status status-error">' + (err.message || err) + '</div>';
+        })
+        .saveSyllabusDocument(file.name, file.type || 'application/pdf', base64);
+    };
+    reader.onerror = function () {
+      btn.disabled = false;
+      btn.textContent = 'Upload';
+      document.getElementById('syllabusDocUploadStatus').innerHTML = '<div class="status status-error">Could not read the file.</div>';
+    };
+    reader.readAsDataURL(file);
+  }
 
   function showError(err) {
     document.getElementById('loadingLine').style.display = 'none';
