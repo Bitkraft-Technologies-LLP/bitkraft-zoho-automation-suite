@@ -6,13 +6,32 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-export async function processInvoice(filePath: string, zoho: ZohoClient, orgGst: string | undefined, orgName: string, orgState: string | undefined, dryRun: boolean, autoCreateVendor: boolean = false): Promise<boolean> {
+import { ensureUnlockedPDF } from "./parser/pdf-decryptor";
+
+export async function processInvoice(
+  filePath: string, 
+  zoho: ZohoClient, 
+  orgGst: string | undefined, 
+  orgName: string, 
+  orgState: string | undefined, 
+  dryRun: boolean, 
+  autoCreateVendor: boolean = false,
+  metadata: { subject?: string; fromEmail?: string } = {}
+): Promise<boolean> {
   try {
     console.log(`\n${"=".repeat(60)}`);
     console.log(`Processing file: ${filePath}...`);
     console.log("=".repeat(60));
     
     const absolutePath = path.resolve(filePath);
+
+    // Auto-decrypt PDF if password protected
+    await ensureUnlockedPDF(absolutePath, {
+      subject: metadata.subject,
+      fromEmail: metadata.fromEmail,
+      filename: path.basename(filePath)
+    });
+    
     let text = "";
     
     try {

@@ -6,9 +6,12 @@ import fs from "fs";
 import { spawn } from "child_process";
 import dotenv from "dotenv";
 import * as XLSX from "xlsx";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ZohoClient } from "../invoice_processing/zoho/zoho-client";
 import { extractTextFromPDF, parseInvoiceWithAI } from "../invoice_processing/parser/pdf-parser";
+import { ensureUnlockedPDF } from "../invoice_processing/parser/pdf-decryptor";
 import { runEmailSync, setSyncLogger } from "../invoice_processing/email-processor";
+import { runPaymentEmailSync } from "../invoice_processing/payment-email-processor";
 import { NotificationStore } from "../payment_automation/notification-store";
 import { NotificationService } from "../payment_automation/notification-service";
 
@@ -94,6 +97,9 @@ const upload = multer({
     }
   },
 });
+
+// Favicon handler
+app.get("/favicon.ico", (req, res) => res.status(204).end());
 
 // ============================================================================
 // 1. SYSTEM STATUS API
@@ -422,7 +428,18 @@ app.get("/api/invoices/email-sync", async (req, res) => {
     "Connection": "keep-alive",
   });
 
-  res.write("data: Connecting to Microsoft Graph API...\n\n");
+  const sendSSE = (data: string) => {
+    if (!data) return;
+    const lines = String(data).split(/\r?\n/);
+    for (const l of lines) {
+      if (l.trim().length > 0) {
+        res.write(`data: ${l}\n`);
+      }
+    }
+    res.write("\n");
+  };
+
+  sendSSE("Connecting to Microsoft Graph API...");
 
   const originalLog = console.log;
   const originalError = console.error;
@@ -442,35 +459,31 @@ app.get("/api/invoices/email-sync", async (req, res) => {
   console.log = function (...args: any[]) {
     const msg = args.map(formatArg).join(" ");
     originalLog.apply(console, args);
-    res.write(`data: ${msg}\n\n`);
+    sendSSE(msg);
   };
 
   console.error = function (...args: any[]) {
     const msg = args.map(formatArg).join(" ");
     originalError.apply(console, args);
-    res.write(`data: ❌ ERROR: ${msg}\n\n`);
+    sendSSE(`❌ ERROR: ${msg}`);
   };
 
   console.warn = function (...args: any[]) {
     const msg = args.map(formatArg).join(" ");
     originalWarn.apply(console, args);
-    res.write(`data: ⚠️ WARNING: ${msg}\n\n`);
+    sendSSE(`⚠️ WARNING: ${msg}`);
   };
 
   try {
     const zoho = getZoho();
-    
-    // Wire up logger hook to send logs in real-time
-    setSyncLogger((line) => {
-      res.write(`data: ${line}\n\n`);
-    });
+    const isDryRun = req.query.dryRun === "true";
 
-    const summary = await runEmailSync(zoho, { dryRun: false });
+    const summary = await runEmailSync(zoho, { dryRun: isDryRun });
     
-    res.write(`data: SUCCESS: Email sync finished. Ingested: ${summary.processed}, Bills Recorded: ${summary.billsCreated}, Failed: ${summary.failures}\n\n`);
+    sendSSE(`SUCCESS: Email sync finished. Ingested: ${summary.processed}, Bills Recorded: ${summary.billsCreated}, Failed: ${summary.failures}`);
     res.write("event: end\ndata: \n\n");
   } catch (error: any) {
-    res.write(`data: ERROR: ${error.message}\n\n`);
+    sendSSE(`ERROR: ${error.message}`);
     res.write("event: end\ndata: \n\n");
   } finally {
     console.log = originalLog;
@@ -846,10 +859,10 @@ const uploadStatement = multer({
   storage: statementStorage,
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    if (ext === ".csv" || ext === ".xlsx" || ext === ".xls") {
+    if (ext === ".csv" || ext === ".xlsx" || ext === ".xls" || ext === ".pdf") {
       cb(null, true);
     } else {
-      cb(new Error("Only CSV and Excel files (.xlsx, .xls) are allowed"));
+      cb(new Error("Only CSV, Excel (.xlsx, .xls), and PDF bank statement files are allowed"));
     }
   },
 });
@@ -1112,6 +1125,125 @@ app.get("/api/payment/unpaid-bills", async (req, res) => {
   }
 });
 
+// Fetch unpaid/partially paid Customer Invoices (sales invoices)
+app.get("/api/payment/unpaid-customer-invoices", async (req, res) => {
+  try {
+    const zoho = getZoho();
+    const unpaidInvoices = await zoho.getInvoices({ status: "unpaid" });
+    const partiallyPaidInvoices = await zoho.getInvoices({ status: "partially_paid" });
+    const allUnpaid = [...unpaidInvoices, ...partiallyPaidInvoices];
+    
+    const seenIds = new Set<string>();
+    const uniqueInvoices = allUnpaid.filter((inv: any) => {
+      if (seenIds.has(inv.invoice_id)) return false;
+      seenIds.add(inv.invoice_id);
+      return true;
+    });
+    
+    uniqueInvoices.sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+    
+    res.json(uniqueInvoices.map((inv: any) => ({
+      invoice_id: inv.invoice_id,
+      invoice_number: inv.invoice_number,
+      customer_name: inv.customer_name,
+      customer_id: inv.customer_id,
+      total: inv.total,
+      balance: inv.balance,
+      date: inv.date,
+      due_date: inv.due_date
+    })));
+  } catch (error: any) {
+    console.error("Failed to fetch unpaid customer invoices:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// AI-assisted parsing for PDF bank statements
+async function parsePDFBankStatement(filePath: string): Promise<any[]> {
+  try {
+    // 1. Auto-unlock if password-protected
+    await ensureUnlockedPDF(filePath, { filename: path.basename(filePath) });
+
+    // 2. Extract text from PDF
+    let text = "";
+    try {
+      text = await extractTextFromPDF(filePath);
+    } catch (e: any) {
+      console.warn("Raw PDF text extraction failed:", e.message);
+    }
+
+    const buffer = fs.readFileSync(filePath);
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+    const model = genAI.getGenerativeModel({
+      model: process.env.GEMINI_MODEL || "gemini-1.5-flash",
+      generationConfig: { responseMimeType: "application/json" }
+    });
+
+    const prompt = `
+      Extract all bank account debit and credit transactions from this bank statement into a structured JSON list.
+      For each transaction, determine:
+      - date: YYYY-MM-DD
+      - narration: Full transaction description / particulars
+      - amount: Absolute positive amount as a number
+      - type: "debit" (withdrawal/payment) or "credit" (deposit/inflow)
+      - reference: UTR number, cheque number, or transaction ID if available
+      - vendorName: Payee / vendor name if identified from narration
+      - customerName: Remitter / customer name if identified from narration
+      - billNumber: Bill or invoice number if identified from narration
+
+      Return JSON format:
+      {
+        "transactions": [
+          {
+            "date": "YYYY-MM-DD",
+            "narration": "...",
+            "amount": 1000.0,
+            "type": "debit" | "credit",
+            "reference": "...",
+            "vendorName": "...",
+            "customerName": "...",
+            "billNumber": "..."
+          }
+        ]
+      }
+      ${text ? `\nExtracted Text Content:\n"""\n${text.slice(0, 10000)}\n"""` : ""}
+    `;
+
+    const parts: any[] = [prompt];
+    if (buffer) {
+      parts.push({
+        inlineData: {
+          data: buffer.toString("base64"),
+          mimeType: "application/pdf"
+        }
+      });
+    }
+
+    const result = await model.generateContent(parts);
+    const resText = result.response.text();
+    const match = resText.match(/\{[\s\S]*\}/);
+    if (match) {
+      const parsed = JSON.parse(match[0]);
+      if (Array.isArray(parsed.transactions)) {
+        return parsed.transactions.map((t: any) => ({
+          date: t.date || (new Date().toISOString().split("T")[0] as string),
+          narration: t.narration || "",
+          amount: Math.abs(Number(t.amount) || 0),
+          reference: t.reference || "",
+          type: t.type || "debit",
+          vendorName: t.vendorName || undefined,
+          customerName: t.customerName || undefined,
+          billNumber: t.billNumber || undefined,
+          source: "statement"
+        }));
+      }
+    }
+  } catch (err: any) {
+    console.error("Failed to parse PDF bank statement:", err.message);
+  }
+  return [];
+}
+
 // Upload and match bank statement transactions against unpaid bills
 app.post("/api/payment/upload-statement", uploadStatement.single("statement"), async (req, res) => {
   try {
@@ -1120,7 +1252,10 @@ app.post("/api/payment/upload-statement", uploadStatement.single("statement"), a
     }
 
     const filePath = req.file.path;
-    const transactions = parseBankStatement(filePath);
+    const ext = path.extname(req.file.originalname).toLowerCase();
+    const transactions = ext === ".pdf" 
+      ? await parsePDFBankStatement(filePath) 
+      : parseBankStatement(filePath);
 
     const zoho = getZoho();
     const unpaidBills = await zoho.getBills({ status: "unpaid" });
@@ -1143,18 +1278,34 @@ app.post("/api/payment/upload-statement", uploadStatement.single("statement"), a
       let matchStatus: "exact" | "amount_mismatch" | "none" = "none";
 
       for (const bill of allBills) {
-        const billNum = bill.bill_number.toLowerCase();
-        const cleanedBillNum = bill.bill_number.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-        const narration = txn.narration.toLowerCase();
+        const billNum = (bill.bill_number || "").toLowerCase();
+        const cleanedBillNum = (bill.bill_number || "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+        const narration = (txn.narration || "").toLowerCase();
+        const ref = (txn.reference || "").toLowerCase();
+        const explicitBill = (txn.billNumber || "").toLowerCase();
+        const vendorName = (txn.vendorName || "").toLowerCase();
+        const billVendor = (bill.vendor_name || "").toLowerCase();
 
-        // Match if invoice number or cleaned invoice number is present in narration
-        if (billNum.length >= 3 && (narration.includes(billNum) || narration.includes(cleanedBillNum))) {
+        // Match if invoice number or cleaned invoice number is present
+        const isBillNumMatch = 
+          (explicitBill && explicitBill === billNum) ||
+          (billNum.length >= 3 && (narration.includes(billNum) || narration.includes(cleanedBillNum) || ref.includes(billNum)));
+
+        if (isBillNumMatch) {
           matchedBill = bill;
           if (Math.abs(txn.amount - bill.balance) < 0.05) {
             matchStatus = "exact";
             break;
           } else {
             matchStatus = "amount_mismatch";
+          }
+        } else if (!matchedBill && billVendor.length >= 3) {
+          // Vendor name + exact amount match fallback
+          const isVendorMatch = narration.includes(billVendor) || (vendorName && vendorName.includes(billVendor));
+          if (isVendorMatch && Math.abs(txn.amount - bill.balance) < 0.05) {
+            matchedBill = bill;
+            matchStatus = "exact";
+            break;
           }
         }
       }
@@ -1268,6 +1419,95 @@ app.post("/api/payment/reconcile", async (req, res) => {
   }
 });
 
+// Reconcile and record multiple Customer Payments Received in Zoho Books
+app.post("/api/payment/reconcile-customer-payments", async (req, res) => {
+  try {
+    const { depositAccountId, payments } = req.body;
+    
+    if (!depositAccountId) {
+      return res.status(400).json({ error: "Missing depositAccountId parameter" });
+    }
+    if (!payments || !Array.isArray(payments) || payments.length === 0) {
+      return res.status(400).json({ error: "Missing or empty payments array" });
+    }
+
+    const zoho = getZoho();
+    const results: any[] = [];
+
+    for (const payment of payments) {
+      const { invoiceId, customerId, amount, date, referenceNumber, description } = payment;
+      
+      try {
+        const payload = {
+          customer_id: customerId,
+          date: date,
+          amount: amount,
+          account_id: depositAccountId,
+          payment_mode: "Bank Transfer",
+          reference_number: referenceNumber || "",
+          description: description || "Customer payment received via statement/email match",
+          invoices: [
+            {
+              invoice_id: invoiceId,
+              amount_applied: amount
+            }
+          ]
+        };
+
+        const result = await zoho.createCustomerPayment(payload);
+        const paymentId = result.payment?.payment_id || result.customerpayment?.payment_id;
+
+        results.push({
+          invoiceId,
+          success: true,
+          paymentId: paymentId || "N/A",
+          message: "Customer payment recorded successfully"
+        });
+      } catch (err: any) {
+        console.error(`Customer payment reconciliation failed for invoice ID ${invoiceId}:`, err.response?.data || err.message);
+        results.push({
+          invoiceId,
+          success: false,
+          error: err.response?.data?.message || err.message
+        });
+      }
+    }
+
+    res.json({ success: true, results });
+  } catch (error: any) {
+    console.error("Customer payment reconciliation execution error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Scan inbox for payment confirmation/debit emails and auto-record payments
+app.post("/api/payment/scan-email-payments", async (req, res) => {
+  try {
+    const { paidThroughAccountId, dryRun } = req.body;
+    const zoho = getZoho();
+
+    let accountId = paidThroughAccountId;
+    if (!accountId) {
+      const accounts = await zoho.getAccounts();
+      const resolved = accounts.find((acc: any) => 
+        (acc.account_type === "bank" || acc.account_type === "cash") &&
+        (acc.account_name.toLowerCase().includes("kotak") || acc.account_name.includes("5253078611"))
+      );
+      if (resolved) accountId = resolved.account_id;
+    }
+
+    if (!accountId) {
+      return res.status(400).json({ error: "Could not resolve bank account ID. Please provide paidThroughAccountId." });
+    }
+
+    const summary = await runPaymentEmailSync(zoho, accountId, { dryRun: !!dryRun });
+    res.json({ success: true, summary });
+  } catch (error: any) {
+    console.error("Email payment scan error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ============================================================================
 // 6. VENDOR PAYMENT EMAIL NOTIFICATIONS API
 // ============================================================================
@@ -1370,6 +1610,14 @@ app.get("/api/payment-notifications/:paymentId/preview", async (req, res) => {
     console.error("Preview error:", error);
     res.status(500).json({ error: error.message });
   }
+});
+
+// Global error handling middleware (e.g. for Multer file type or size errors)
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("API Error:", err.message || err);
+  res.status(err.status || 400).json({
+    error: err.message || "An unexpected error occurred"
+  });
 });
 
 // ============================================================================

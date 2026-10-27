@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 import dotenv from "dotenv";
 import readline from "readline";
 import { NotificationService } from "./notification-service";
+import { loadBankStatement } from "./statement-parser";
 
 dotenv.config();
 
@@ -256,7 +257,7 @@ async function run() {
   }
 
   console.log(`Parsing bank statement: ${absolutePath}...`);
-  const transactions = parseBankStatement(absolutePath);
+  const transactions = await loadBankStatement(absolutePath);
   console.log(`Found ${transactions.length} debit transactions.`);
 
   console.log("Fetching unpaid bills from Zoho Books...");

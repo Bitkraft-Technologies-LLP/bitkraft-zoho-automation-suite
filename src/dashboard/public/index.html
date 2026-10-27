@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Zoho Books Automation Suite</title>
+  <title>Zoho Books Automation Suite | Control Center</title>
   <!-- Google Fonts: Inter & Outfit -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,33 +27,30 @@
 
       <nav class="nav-menu">
         <button class="nav-item active" data-tab="overview">
-          <span class="icon">📊</span> Overview
+          <span class="icon">📊</span> Command Center
         </button>
         <button class="nav-item" data-tab="invoices">
-          <span class="icon">📄</span> Invoices Processor
+          <span class="icon">📄</span> Invoices Hub
+        </button>
+        <button class="nav-item" data-tab="payments">
+          <span class="icon">🏦</span> Reconcile & Bank Hub
         </button>
         <button class="nav-item" data-tab="currency">
           <span class="icon">𒁂</span> Currency Exchange
         </button>
-        <button class="nav-item" data-tab="payments">
-          <span class="icon">🏦</span> Bank Payments
-        </button>
         <button class="nav-item" data-tab="notifications">
-          <span class="icon">✉️</span> Notifications
+          <span class="icon">✉️</span> Audit & Notifications
         </button>
         <button class="nav-item" data-tab="config">
-          <span class="icon">⚙️</span> Configuration
+          <span class="icon">⚙️</span> Settings & Config
         </button>
       </nav>
 
-      <div class="sidebar-footer" style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="sidebar-footer">
         <div class="status-indicator">
           <div class="pulse-dot green" id="global-status-dot"></div>
           <span id="global-status-text">Connecting...</span>
         </div>
-        <button class="btn btn-secondary btn-sm" id="btn-devtools" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; padding: 6px 12px;">
-          🛠️ Open DevTools
-        </button>
       </div>
     </aside>
 
@@ -63,8 +60,8 @@
       <!-- HEADER -->
       <header class="main-header">
         <div class="header-title">
-          <h2 id="current-tab-title">Overview</h2>
-          <p id="current-tab-desc" class="desc-text">System integrations and real-time status details.</p>
+          <h2 id="current-tab-title">Executive Command Center</h2>
+          <p id="current-tab-desc" class="desc-text">Real-time automation metrics, health indicators, and quick action bar.</p>
         </div>
         
         <div class="system-badges">
@@ -82,95 +79,161 @@
       <!-- CONTENT PANELS -->
       <div class="panels-container">
         
-        <!-- 1. OVERVIEW TAB -->
+        <!-- =================================================================== -->
+        <!-- 1. EXECUTIVE COMMAND CENTER OVERVIEW TAB -->
+        <!-- =================================================================== -->
         <section class="tab-panel active" id="panel-overview">
-          <div class="grid-layout cols-3">
+          
+          <!-- Quick Action Banner -->
+          <div class="quick-action-bar mb-2">
+            <div class="bar-title">
+              <span class="sparkle-icon">⚡</span>
+              <span>Quick Action Bar</span>
+            </div>
+            <div class="bar-buttons">
+              <button class="btn btn-primary btn-sm" id="ov-act-sync-email">
+                📩 Sync Email Invoices
+              </button>
+              <button class="btn btn-emerald btn-sm" id="ov-act-reconcile">
+                📊 Upload Bank Statement
+              </button>
+              <button class="btn btn-amber btn-sm" id="ov-act-gen-payments">
+                🏦 Generate Kotak Payment Files
+              </button>
+            </div>
+          </div>
+
+          <!-- KPI STAT CARDS ROW -->
+          <div class="grid-layout cols-4 mb-2">
+            <!-- Card 1: Pending Invoices -->
+            <div class="card glass stat-card shadow scale-hover">
+              <div class="stat-content">
+                <span class="stat-label">Pending Invoices</span>
+                <span class="stat-number violet-text" id="kpi-pending-count">0</span>
+                <span class="stat-subtext" id="kpi-pending-sub">Awaiting AI Parsing</span>
+              </div>
+              <div class="stat-icon violet">📄</div>
+            </div>
+
+            <!-- Card 2: Accounts Payable (AP) -->
+            <div class="card glass stat-card shadow scale-hover">
+              <div class="stat-content">
+                <span class="stat-label">Accounts Payable (AP)</span>
+                <span class="stat-number amber-text" id="kpi-ap-total">₹0.00</span>
+                <span class="stat-subtext" id="kpi-ap-sub">0 Unpaid Vendor Bills</span>
+              </div>
+              <div class="stat-icon amber">💳</div>
+            </div>
+
+            <!-- Card 3: Accounts Receivable (AR) -->
+            <div class="card glass stat-card shadow scale-hover">
+              <div class="stat-content">
+                <span class="stat-label">Accounts Receivable (AR)</span>
+                <span class="stat-number emerald-text" id="kpi-ar-total">₹0.00</span>
+                <span class="stat-subtext" id="kpi-ar-sub">0 Unpaid Sales Invoices</span>
+              </div>
+              <div class="stat-icon emerald">💰</div>
+            </div>
+
+            <!-- Card 4: System Integration Status -->
+            <div class="card glass stat-card shadow scale-hover">
+              <div class="stat-content">
+                <span class="stat-label">Zoho & AI Integration</span>
+                <span class="stat-number cyan-text" id="kpi-integration-status">Connected</span>
+                <span class="stat-subtext" id="kpi-org-name">Bitkraft Technologies</span>
+              </div>
+              <div class="stat-icon cyan">🛡️</div>
+            </div>
+          </div>
+
+          <!-- INTEGRATION & QUEUE GRID -->
+          <div class="grid-layout cols-3 mb-2">
             <!-- Zoho Health Card -->
-            <div class="card glass shadow scale-hover">
-              <div class="card-header">
-                <h3>Zoho Books Integration</h3>
+            <div class="card glass shadow">
+              <div class="card-header border-bottom">
+                <h3>Zoho Books Profile</h3>
                 <span class="header-icon">🏦</span>
               </div>
               <div class="card-body">
                 <div class="status-row">
-                  <span class="label">Status:</span>
-                  <span class="val-badge badge-red" id="ov-zoho-status">Disconnected</span>
+                  <span class="label">Connection:</span>
+                  <span class="val-badge badge-emerald" id="ov-zoho-status">Connected</span>
                 </div>
                 <div class="status-row">
                   <span class="label">Organization:</span>
-                  <span class="val" id="ov-zoho-org">N/A</span>
+                  <span class="val font-semibold" id="ov-zoho-org">Loading...</span>
                 </div>
                 <div class="status-row">
                   <span class="label">GSTIN:</span>
-                  <span class="val" id="ov-zoho-gst">N/A</span>
+                  <span class="val code-font" id="ov-zoho-gst">Loading...</span>
                 </div>
                 <div class="status-row">
                   <span class="label">State:</span>
-                  <span class="val" id="ov-zoho-state">N/A</span>
+                  <span class="val" id="ov-zoho-state">Loading...</span>
                 </div>
               </div>
             </div>
 
             <!-- Gemini Health Card -->
-            <div class="card glass shadow scale-hover">
-              <div class="card-header">
-                <h3>Google Gemini AI</h3>
+            <div class="card glass shadow">
+              <div class="card-header border-bottom">
+                <h3>Google Gemini AI Engine</h3>
                 <span class="header-icon">🤖</span>
               </div>
               <div class="card-body">
                 <div class="status-row">
                   <span class="label">API Key:</span>
-                  <span class="val-badge badge-red" id="ov-gemini-status">Not Found</span>
+                  <span class="val-badge badge-emerald" id="ov-gemini-status">Configured</span>
                 </div>
                 <div class="status-row">
-                  <span class="label">Active Model:</span>
-                  <span class="val code-font" id="ov-gemini-model">N/A</span>
+                  <span class="label">Model:</span>
+                  <span class="val code-font" id="ov-gemini-model">gemini-flash-latest</span>
                 </div>
                 <div class="status-row">
-                  <span class="label">Mime Support:</span>
-                  <span class="val">PDF Multimodal</span>
+                  <span class="label">Password Decryption:</span>
+                  <span class="val text-emerald font-semibold">Active (QPDF Candidate Engine)</span>
                 </div>
                 <div class="status-row">
-                  <span class="label">State Mappings:</span>
-                  <span class="val text-green">Active (TDS/GST)</span>
+                  <span class="label">State Tax Mapping:</span>
+                  <span class="val text-emerald font-semibold">Intra (GST) / Inter (IGST)</span>
                 </div>
               </div>
             </div>
 
-            <!-- Suite Directories -->
-            <div class="card glass shadow scale-hover">
-              <div class="card-header">
-                <h3>Workspace Directories</h3>
+            <!-- Suite Workspace Paths -->
+            <div class="card glass shadow">
+              <div class="card-header border-bottom">
+                <h3>Active Directories</h3>
                 <span class="header-icon">📂</span>
               </div>
               <div class="card-body path-list">
                 <div class="path-row">
                   <span class="label">Invoices Input:</span>
-                  <span class="val code-font truncate" id="ov-path-invoices" title="">Loading...</span>
+                  <span class="val code-font truncate" id="ov-path-invoices">Loading...</span>
                 </div>
                 <div class="path-row">
-                  <span class="label">Invoices Archive:</span>
-                  <span class="val code-font truncate" id="ov-path-archive" title="">Loading...</span>
+                  <span class="label">Archive Dir:</span>
+                  <span class="val code-font truncate" id="ov-path-archive">Loading...</span>
                 </div>
                 <div class="path-row">
-                  <span class="label">Payment Summaries:</span>
-                  <span class="val code-font truncate" id="ov-path-summaries" title="">Loading...</span>
+                  <span class="label">Summaries Dir:</span>
+                  <span class="val code-font truncate" id="ov-path-summaries">Loading...</span>
                 </div>
                 <div class="path-row">
-                  <span class="label">Bank XLS Uploads:</span>
-                  <span class="val code-font truncate" id="ov-path-bank" title="">Loading...</span>
+                  <span class="label">Bank Uploads Dir:</span>
+                  <span class="val code-font truncate" id="ov-path-bank">Loading...</span>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Pending Files overview table -->
-          <div class="card glass shadow mt-2">
-            <div class="card-header">
-              <h3>Next Action Queue</h3>
+          <!-- Pending Files Queue Table -->
+          <div class="card glass shadow">
+            <div class="card-header border-bottom flex-row justify-between align-center">
+              <h3>Action Queue (Pending Invoices to Review)</h3>
               <button class="btn btn-secondary btn-sm" id="ov-refresh-btn">🔄 Refresh Queue</button>
             </div>
-            <div class="card-body">
+            <div class="card-body p-0">
               <div class="table-container">
                 <table class="data-table" id="ov-queue-table">
                   <thead>
@@ -183,7 +246,7 @@
                   </thead>
                   <tbody>
                     <tr>
-                      <td colspan="4" class="text-muted text-center">Scanning directory...</td>
+                      <td colspan="4" class="text-muted text-center p-3">Scanning directory...</td>
                     </tr>
                   </tbody>
                 </table>
@@ -192,16 +255,24 @@
           </div>
         </section>
 
-        <!-- 2. INVOICES PROCESSOR TAB -->
+        <!-- =================================================================== -->
+        <!-- 2. INVOICES PROCESSOR HUB -->
+        <!-- =================================================================== -->
         <section class="tab-panel" id="panel-invoices">
-          <!-- Split view for general files list OR full review screen -->
+          <!-- Standard Queue & Dropzone View -->
           <div id="invoice-standard-view">
-            <!-- Email Sync Toolbar -->
-            <div style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
-              <button class="btn btn-primary" id="btn-sync-emails" style="display: flex; align-items: center; gap: 8px;">
-                📩 Sync Invoices from Email
+            <!-- Toolbar -->
+            <div class="toolbar-row mb-2">
+              <div class="filter-pills">
+                <button class="pill-btn active" data-filter="all">All Invoices</button>
+                <button class="pill-btn" data-filter="pending">Pending Review</button>
+                <button class="pill-btn" data-filter="archived">Archived</button>
+              </div>
+              <button class="btn btn-primary" id="btn-sync-emails">
+                📩 Sync Invoices from Office 365
               </button>
             </div>
+
             <!-- Drag and Drop Dropzone -->
             <div class="dropzone-container mb-2">
               <div class="dropzone" id="pdf-dropzone">
@@ -209,7 +280,7 @@
                   <span class="upload-icon">📂</span>
                   <h3>Drag & Drop PDF Invoices Here</h3>
                   <p>or click to browse files from your computer</p>
-                  <span class="file-limits">PDF invoices only • Configurable local folders active</span>
+                  <span class="file-limits">PDF invoices only • Auto-decryption for password-protected files enabled</span>
                   <input type="file" id="file-input" multiple accept=".pdf" style="display: none;">
                 </div>
               </div>
@@ -224,7 +295,7 @@
               </div>
             </div>
 
-            <!-- Invoices Lists (Pending and Archived) -->
+            <!-- Invoices Grid (Pending & Archived) -->
             <div class="grid-layout cols-2">
               <!-- Pending Column -->
               <div class="card glass shadow flex-col-container">
@@ -250,13 +321,13 @@
             </div>
           </div>
 
-          <!-- DUAL REVIEW INTERFACE (HIDDEN BY DEFAULT) -->
+          <!-- DUAL SPLIT REVIEW INTERFACE (HIDDEN BY DEFAULT) -->
           <div id="invoice-review-view" style="display: none;">
             <div class="review-header-bar mb-1">
               <button class="btn btn-secondary" id="review-back-btn">⬅️ Back to Queue</button>
               <div class="review-meta">
                 <h3>Reviewing: <span id="review-filename-title">invoice.pdf</span></h3>
-                <span class="ai-confidence">🔮 AI-Extracted Model Verified</span>
+                <span class="ai-confidence">🔮 AI Multimodal Parser Verified</span>
               </div>
               <div class="action-status" id="review-action-status"></div>
             </div>
@@ -269,28 +340,24 @@
                 </div>
               </div>
 
-              <!-- Right Panel: Extracted Fields Editor Form -->
+              <!-- Right Panel: Extracted Form Editor -->
               <div class="split-right card glass">
-                <!-- Success view (hidden by default) -->
                 <div id="review-success-view" style="display: none; height: 100%;"></div>
 
-                <!-- Form wrapper (so we can toggle it easily) -->
                 <div id="review-form-container" style="display: block;">
-                  <!-- Status warnings (e.g. Vendor not found Alert) -->
+                  <!-- Status Alert -->
                   <div class="alert-box" id="vendor-status-alert">
                     <div class="alert-content">
                       <h4 id="alert-title">Checking database...</h4>
                       <p id="alert-desc">Verifying vendor records in Zoho Books.</p>
                     </div>
-                    <div class="alert-actions" id="alert-actions-div">
-                      <!-- Dynamic Buttons -->
-                    </div>
+                    <div class="alert-actions" id="alert-actions-div"></div>
                   </div>
 
                   <!-- Form Fields -->
                   <form id="invoice-review-form" class="review-form">
                     <div class="form-section">
-                      <h4>Vendor Information</h4>
+                      <h4>Vendor Profile</h4>
                       <div class="form-grid cols-2">
                         <div class="form-group">
                           <label for="f-vendor-name">Vendor Name <span class="required">*</span></label>
@@ -298,7 +365,7 @@
                         </div>
                         <div class="form-group">
                           <label for="f-vendor-gst">Vendor GSTIN</label>
-                          <input type="text" id="f-vendor-gst" placeholder="e.g. 27AAAAA0000A1Z">
+                          <input type="text" id="f-vendor-gst" placeholder="e.g. 27AAPFP8092C1ZU">
                         </div>
                         <div class="form-group">
                           <label for="f-vendor-pan">Vendor PAN</label>
@@ -312,7 +379,7 @@
                     </div>
 
                     <div class="form-section">
-                      <h4>Bill Settings & Identification</h4>
+                      <h4>Bill Header Details</h4>
                       <div class="form-grid cols-4">
                         <div class="form-group">
                           <label for="f-bill-number">Bill/Invoice No. <span class="required">*</span></label>
@@ -328,7 +395,7 @@
                         </div>
                         <div class="form-group">
                           <label for="f-bill-currency">Currency <span class="required">*</span></label>
-                          <input type="text" id="f-bill-currency" required placeholder="e.g. INR, USD" style="text-transform: uppercase;">
+                          <input type="text" id="f-bill-currency" required placeholder="INR" style="text-transform: uppercase;">
                         </div>
                       </div>
                     </div>
@@ -346,9 +413,7 @@
                               <th width="20%">Tax Rate</th>
                             </tr>
                           </thead>
-                          <tbody>
-                            <!-- Dynamic rows -->
-                          </tbody>
+                          <tbody></tbody>
                         </table>
                       </div>
                     </div>
@@ -362,7 +427,6 @@
                       </div>
                       
                       <input type="hidden" id="f-vendor-id" value="">
-                      
                       <button type="submit" class="btn btn-primary" id="btn-push-zoho" disabled>
                         🚀 Push Bill to Zoho Books
                       </button>
@@ -374,10 +438,271 @@
           </div>
         </section>
 
-        <!-- 3. CURRENCY EXCHANGE TAB -->
+        <!-- =================================================================== -->
+        <!-- 3. RECONCILE & BANK HUB (PAYABLES, RECEIVABLES & AUTO-MATCHER) -->
+        <!-- =================================================================== -->
+        <section class="tab-panel" id="panel-payments">
+          
+          <!-- SUB-NAVIGATION TOOLBAR -->
+          <div class="subnav-bar mb-2">
+            <button class="subnav-item active" data-subtab="subtab-matcher">
+              <span class="icon">📊</span> Statement & Email Auto-Matcher
+            </button>
+            <button class="subnav-item" data-subtab="subtab-payables">
+              <span class="icon">📤</span> Accounts Payable (Vendor Payouts)
+            </button>
+            <button class="subnav-item" data-subtab="subtab-receivables">
+              <span class="icon">📥</span> Accounts Receivable (Client Inflows)
+            </button>
+          </div>
+
+          <!-- SUBTAB 1: STATEMENT & EMAIL AUTO-MATCHER -->
+          <div class="subtab-content active" id="subtab-matcher">
+            <div class="grid-layout cols-3 mb-2">
+              <!-- Upload Statement Card (cols 2) -->
+              <div class="card glass shadow col-span-2">
+                <div class="card-header border-bottom flex-row justify-between align-center">
+                  <div>
+                    <h3>Bank Statement Upload & Matcher</h3>
+                    <p class="desc-text">Matches statement rows against Unpaid Vendor Bills (Debits) and Unpaid Customer Invoices (Credits).</p>
+                  </div>
+                  <span class="badge badge-emerald">AP & AR Dual Matcher</span>
+                </div>
+                <div class="card-body">
+                  <div class="form-grid cols-2 mb-2">
+                    <div class="form-group">
+                      <label for="reconcile-account-select">Bank/Cash Debit & Credit Account <span class="required">*</span></label>
+                      <select id="reconcile-account-select">
+                        <option value="">-- Select Bank Account --</option>
+                      </select>
+                    </div>
+                    <div class="form-group align-self-end">
+                      <button class="btn btn-primary" id="btn-scan-email-payments" style="width: 100%; justify-content: center; gap: 8px;">
+                        📩 Scan Email Payment Notifications
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="dropzone-container">
+                    <div class="dropzone" id="statement-dropzone">
+                      <div class="dropzone-content">
+                        <span class="upload-icon">📊</span>
+                        <h3>Drag & Drop Bank Statement (CSV, Excel, or PDF)</h3>
+                        <p>or click to browse local statement files</p>
+                        <span class="file-limits">Supports Kotak, HDFC, ICICI, Axis, SBI export files • Auto-unlock for password-protected PDFs</span>
+                        <input type="file" id="statement-file-input" accept=".csv,.xlsx,.xls,.pdf" style="display: none;">
+                      </div>
+                    </div>
+                    <div class="upload-progress-container" id="statement-progress-container" style="display: none;">
+                      <div class="progress-info">
+                        <span id="statement-status-text">Uploading statement...</span>
+                        <span id="statement-percent">0%</span>
+                      </div>
+                      <div class="progress-bar">
+                        <div class="progress-fill" id="statement-progress-fill" style="width: 0%"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Matcher Filter & Summary Card -->
+              <div class="card glass shadow">
+                <div class="card-header border-bottom">
+                  <h3>Matching Controls</h3>
+                  <span class="header-icon">⚙️</span>
+                </div>
+                <div class="card-body">
+                  <div class="filter-group mb-2">
+                    <label class="label">Show Transaction Types:</label>
+                    <div class="filter-pills mt-1">
+                      <button class="pill-btn active" id="btn-filter-all-txns">All Types</button>
+                      <button class="pill-btn" id="btn-filter-debit-txns">Outflows (Debits)</button>
+                      <button class="pill-btn" id="btn-filter-credit-txns">Inflows (Credits)</button>
+                    </div>
+                  </div>
+                  <div class="status-row mt-1">
+                    <span class="label">Auto-Match Rules:</span>
+                    <span class="val font-semibold text-emerald">Invoice #, Vendor/Client Name, Amount</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- PARSED MATCH PREVIEW TABLE -->
+            <div class="card glass shadow mb-2" id="reconcile-preview-card" style="display: none;">
+              <div class="card-header border-bottom flex-row justify-between align-center">
+                <h3>Parsed Statement Match Preview</h3>
+                <span class="badge badge-amber" id="reconcile-match-count">0 Matches Found</span>
+              </div>
+              <div class="card-body p-0">
+                <div class="table-container">
+                  <table class="data-table" id="reconcile-preview-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 40px; text-align: center;"><input type="checkbox" id="reconcile-select-all" checked></th>
+                        <th>Type</th>
+                        <th>Txn Date</th>
+                        <th>Narration</th>
+                        <th>Amount</th>
+                        <th>Matched Document</th>
+                        <th>Party Name</th>
+                        <th>Balance</th>
+                        <th>Match Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="reconcile-preview-tbody"></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="card-footer border-top text-right p-2">
+                <button class="btn btn-primary" id="btn-apply-reconciled">
+                  🚀 Mark Selected Payments in Zoho Books
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- SUBTAB 2: ACCOUNTS PAYABLE (VENDOR PAYOUTS) -->
+          <div class="subtab-content" id="subtab-payables">
+            <div class="grid-layout cols-2 mb-2">
+              <!-- Generator Card -->
+              <div class="card glass shadow">
+                <div class="card-header border-bottom">
+                  <h3>Kotak Bulk Payment Generator</h3>
+                  <span class="header-icon">🏦</span>
+                </div>
+                <div class="card-body">
+                  <div class="status-row mb-1">
+                    <span class="val-badge badge-green">Kotak A/c: 5253078611 (CMS Bulk Format)</span>
+                  </div>
+                  <p class="desc-text mb-2">
+                    Fetches all unpaid & partially paid bills in Zoho Books, computes net payable amounts net of TDS deductions, and generates bank-ready Kotak upload XLSX and CSV summaries.
+                  </p>                  
+                  <div class="button-actions mt-2">
+                    <button class="btn btn-primary" id="btn-run-payments">🚀 Generate Kotak Payment Sheets</button>
+                    <button class="btn btn-secondary ml-1" id="btn-refresh-payments-list">🔄 Sync Download Sheets</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Manual Payables Card -->
+              <div class="card glass shadow">
+                <div class="card-header border-bottom">
+                  <h3>Manual Vendor Payment</h3>
+                  <span class="header-icon">✍️</span>
+                </div>
+                <div class="card-body">
+                  <p class="desc-text mb-1">Record a single vendor bill payment manually.</p>
+                  <button class="btn btn-secondary btn-sm mb-2" id="btn-fetch-unpaid-bills" style="width: 100%;">
+                    🔍 Fetch Unpaid Vendor Bills
+                  </button>
+
+                  <div id="manual-payment-form" style="display: none;" class="manual-payment-grid">
+                    <div class="form-group full-col">
+                      <label for="manual-bill-select">Select Bill <span class="required">*</span></label>
+                      <select id="manual-bill-select"><option value="">-- Select Bill --</option></select>
+                    </div>
+                    <div class="form-group">
+                      <label for="manual-pay-date">Payment Date <span class="required">*</span></label>
+                      <input type="date" id="manual-pay-date">
+                    </div>
+                    <div class="form-group">
+                      <label for="manual-pay-amount">Amount Paid (₹) <span class="required">*</span></label>
+                      <input type="number" id="manual-pay-amount" step="0.01" placeholder="0.00">
+                    </div>
+                    <div class="form-group full-col">
+                      <label for="manual-pay-utr">Bank UTR / Reference Number</label>
+                      <input type="text" id="manual-pay-utr" placeholder="e.g. KKBK2627001923">
+                    </div>
+                    <div class="form-group full-col mt-1">
+                      <button class="btn btn-primary" id="btn-submit-manual-payment" style="width: 100%;">💾 Record Payment in Zoho</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Terminal Output Console for Payment Generation -->
+            <div class="card glass shadow terminal-console-card mb-2" id="payments-console-card" style="display: none;">
+              <div class="card-header console-header">
+                <div class="console-controls">
+                  <span class="dot red-dot"></span>
+                  <span class="dot yellow-dot"></span>
+                  <span class="dot green-dot"></span>
+                  <span class="title code-font ml-1">Terminal: Payment Generator</span>
+                </div>
+              </div>
+              <div class="console-output code-font" id="payments-terminal-output">Starting payment file generation...</div>
+            </div>
+
+            <!-- Download Lists -->
+            <div class="grid-layout cols-2">
+              <div class="card glass shadow">
+                <div class="card-header border-bottom">
+                  <h3>Bank Upload Spreadsheets (.xlsx)</h3>
+                  <span class="badge badge-emerald">Kotak Ready</span>
+                </div>
+                <div class="card-body p-0">
+                  <ul class="file-download-list" id="xlsx-downloads-list">
+                    <li class="empty-list">No bank files generated yet. Click generate above.</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="card glass shadow">
+                <div class="card-header border-bottom">
+                  <h3>Audit Summaries (.csv)</h3>
+                  <span class="badge badge-indigo">Internal Auditing</span>
+                </div>
+                <div class="card-body p-0">
+                  <ul class="file-download-list" id="csv-downloads-list">
+                    <li class="empty-list">No summaries generated yet. Click generate above.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SUBTAB 3: ACCOUNTS RECEIVABLE (CLIENT INFLOWS) -->
+          <div class="subtab-content" id="subtab-receivables">
+            <div class="card glass shadow mb-2">
+              <div class="card-header border-bottom flex-row justify-between align-center">
+                <div>
+                  <h3 class="emerald-text">💰 Accounts Receivable (Unpaid Sales Invoices)</h3>
+                  <p class="desc-text">Invoices raised to clients awaiting incoming customer payments.</p>
+                </div>
+                <button class="btn btn-secondary btn-sm" id="btn-fetch-ar-invoices">🔄 Refresh Unpaid Invoices</button>
+              </div>
+              <div class="card-body p-0">
+                <div class="table-container">
+                  <table class="data-table" id="ar-invoices-table">
+                    <thead>
+                      <tr>
+                        <th>Invoice Number</th>
+                        <th>Client / Customer</th>
+                        <th>Invoice Date</th>
+                        <th>Due Date</th>
+                        <th>Total Amount</th>
+                        <th>Balance Due</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="ar-invoices-tbody">
+                      <tr><td colspan="7" class="text-center text-muted p-3">Click Refresh to load sales invoices...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =================================================================== -->
+        <!-- 4. CURRENCY EXCHANGE TAB -->
+        <!-- =================================================================== -->
         <section class="tab-panel" id="panel-currency">
           <div class="grid-layout cols-3 mb-2">
-            <!-- Execution Control Card -->
             <div class="card glass shadow col-span-2">
               <div class="card-header">
                 <h3>ICEGATE Circular Crawler</h3>
@@ -385,25 +710,21 @@
               </div>
               <div class="card-body">
                 <p class="desc-text mb-2">
-                  This crawler scrapes official exchange rates from the Indian Customs Electronic Gateway (ICEGATE / CBIC). 
-                  It parses PDF circulars, matches target currencies (`USD, AUD, EUR, GBP`), and updates them directly in Zoho Books.
+                  Scrapes official exchange rates from the Indian Customs Electronic Gateway (ICEGATE / CBIC), parses PDF circulars, matches target currencies (`USD, AUD, EUR, GBP`), and updates Zoho Books.
                 </p>
-
                 <div class="run-control-form">
-                  <div class="form-group inline">
-                    <label for="currency-target-date">Fetch Rates For Date (Optional):</label>
-                    <input type="date" id="currency-target-date" placeholder="Leave empty for latest rates">
+                  <div class="form-group inline mb-1">
+                    <label for="currency-target-date">Target Date (Optional):</label>
+                    <input type="date" id="currency-target-date">
                   </div>
-                  
-                  <div class="button-actions mt-1">
+                  <div class="button-actions">
                     <button class="btn btn-primary" id="btn-run-currency">🚀 Run CBIC Rates Crawler</button>
-                    <button class="btn btn-secondary" id="btn-refresh-rates">🔄 View Active Circular Rates</button>
+                    <button class="btn btn-secondary ml-1" id="btn-refresh-rates">🔄 View Active Circular Rates</button>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- Current Rates Card -->
             <div class="card glass shadow">
               <div class="card-header border-bottom">
                 <h3>Fetched Rates Summary</h3>
@@ -415,7 +736,6 @@
             </div>
           </div>
 
-          <!-- Real-time Terminal Log Console -->
           <div class="card glass shadow terminal-console-card">
             <div class="card-header console-header">
               <div class="console-controls">
@@ -429,274 +749,48 @@
               </div>
             </div>
             <div class="console-output code-font" id="currency-terminal-output">
-              [System Alert] Awaiting execution trigger... Click "Run CBIC Rates Crawler" above to begin.
+              [System Alert] Awaiting execution trigger...
             </div>
           </div>
         </section>
 
-        <!-- 4. BANK PAYMENTS TAB -->
-        <section class="tab-panel" id="panel-payments">
-          <div class="grid-layout cols-3 mb-2">
-            <!-- Run trigger card -->
-            <div class="card glass shadow col-span-2">
-              <div class="card-header">
-                <h3>Bank Upload & Payment Summaries</h3>
-                <span class="header-icon">🏦</span>
-              </div>
-              <div class="card-body">
-                <p class="desc-text mb-2">
-                  Fetches all outstanding draft, unpaid, and partially paid bills in your Zoho Books dashboard. 
-                  It resolves vendors' bank accounts (extracted and stored in contact profiles) and calculates net payable amounts net of TDS deductions.
-                </p>
-                
-                <div class="alert-box alert-success mb-2">
-                  <div class="alert-content">
-                    <h4>Debit Account Preset</h4>
-                    <p>Debit account is set to Kotak account <strong>5253078611</strong>. Transaction codes automatically split into NEFT/IFT based on vendor routing numbers.</p>
-                  </div>
-                </div>
-
-                <div class="run-control-form">
-                  <button class="btn btn-primary" id="btn-run-payments">🚀 Generate Excel & CSV Bank Payment Files</button>
-                  <button class="btn btn-secondary ml-1" id="btn-refresh-payments-list">🔄 Sync Files list</button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Configured directory paths info -->
-            <div class="card glass shadow">
-              <div class="card-header border-bottom">
-                <h3>Paths Configuration</h3>
-                <span class="header-icon">⚙️</span>
-              </div>
-              <div class="card-body">
-                <div class="status-row flex-col">
-                  <span class="label">CSV Summary Directory:</span>
-                  <span class="val code-font truncate" id="pm-path-summary">Loading...</span>
-                </div>
-                <div class="status-row flex-col mt-1">
-                  <span class="label">XLSX Bank Upload Directory:</span>
-                  <span class="val code-font truncate" id="pm-path-xlsx">Loading...</span>
-                </div>
-                <div class="status-row flex-col mt-1">
-                  <span class="label">Credit Advice Memo Text:</span>
-                  <span class="val code-font" id="pm-advice-format">Loading...</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Real-time Payments Generation Console -->
-          <div class="card glass shadow terminal-console-card mb-2" id="payments-console-card" style="display: none;">
-            <div class="card-header console-header">
-              <div class="console-controls">
-                <span class="dot red-dot"></span>
-                <span class="dot yellow-dot"></span>
-                <span class="dot green-dot"></span>
-                <span class="title code-font ml-1">Terminal: npx ts-node generate-bank-payment.ts</span>
-              </div>
-            </div>
-            <div class="console-output code-font" id="payments-terminal-output">
-              Starting payment spreadsheet processing...
-            </div>
-          </div>
-
-          <!-- SECTION DIVISION: RECONCILIATION & MANUAL PAYMENT -->
-          <div class="form-section-title mt-3">Reconciliation & Manual Payment Marking</div>
-
-          <div class="grid-layout cols-3 mb-2">
-            <!-- 1. Auto-Reconciler Card (cols 2) -->
-            <div class="card glass shadow col-span-2">
-              <div class="card-header border-bottom">
-                <h3>Bank Statement Upload & Match</h3>
-                <span class="badge badge-emerald">Auto Matcher</span>
-              </div>
-              <div class="card-body">
-                <p class="desc-text mb-2">
-                  Upload a bank statement (CSV or XLSX). The system will parse debit transactions, match them with unpaid bills in Zoho Books by invoice description, and prepare them for batch payment marking.
-                </p>
-
-                <div class="form-grid cols-2 mb-2">
-                  <div class="form-group">
-                    <label for="reconcile-account-select">Payment Debit Account (Zoho Bank Account) <span class="required">*</span></label>
-                    <select id="reconcile-account-select">
-                      <option value="">-- Select Bank/Cash Account --</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div class="dropzone-container">
-                  <div class="dropzone" id="statement-dropzone">
-                    <div class="dropzone-content">
-                      <span class="upload-icon">📊</span>
-                      <h3>Drag & Drop Bank Statement (CSV / XLSX)</h3>
-                      <p>or click to browse local files</p>
-                      <span class="file-limits">Supports standard bank transaction exports</span>
-                      <input type="file" id="statement-file-input" accept=".csv,.xlsx,.xls" style="display: none;">
-                    </div>
-                  </div>
-                  <div class="upload-progress-container" id="statement-progress-container" style="display: none;">
-                    <div class="progress-info">
-                      <span id="statement-status-text">Uploading statement...</span>
-                      <span id="statement-percent">0%</span>
-                    </div>
-                    <div class="progress-bar">
-                      <div class="progress-fill" id="statement-progress-fill" style="width: 0%"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 2. Manual Payment Card (col 1) -->
-            <div class="card glass shadow">
-              <div class="card-header border-bottom">
-                <h3>Manual Payment Record</h3>
-                <span class="header-icon">✍️</span>
-              </div>
-              <div class="card-body">
-                <p class="desc-text mb-2">
-                  Fetch unpaid bills directly from Zoho and record payment details (Date, UTR/Reference, Amount) manually.
-                </p>
-                <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
-                  <button class="btn btn-secondary" style="width: 100%; justify-content: center; gap: 8px;" id="btn-fetch-unpaid-bills">
-                    🔍 Fetch Unpaid Bills from Zoho
-                  </button>
-                  
-                  <div id="manual-payment-form" style="display: none; border-top: 1px solid var(--border-color); padding-top: 12px; flex-direction: column; gap: 10px;">
-                    <div class="form-group">
-                      <label for="manual-bill-select">Target Unpaid Bill <span class="required">*</span></label>
-                      <select id="manual-bill-select">
-                        <option value="">-- Select Bill --</option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label for="manual-pay-date">Payment Date <span class="required">*</span></label>
-                      <input type="date" id="manual-pay-date">
-                    </div>
-                    <div class="form-group">
-                      <label for="manual-pay-amount">Amount Paid <span class="required">*</span></label>
-                      <input type="number" id="manual-pay-amount" step="0.01" placeholder="0.00">
-                    </div>
-                    <div class="form-group">
-                      <label for="manual-pay-utr">UTR / Reference Number</label>
-                      <input type="text" id="manual-pay-utr" placeholder="UTR transaction ID">
-                    </div>
-                    <button class="btn btn-primary mt-1" id="btn-submit-manual-payment" style="justify-content: center;">
-                      💾 Record Manual Payment
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 3. Reconciliation Match Table Preview Card (Full-width, hidden until statement parsed) -->
-          <div class="card glass shadow mb-2" id="reconcile-preview-card" style="display: none;">
-            <div class="card-header border-bottom">
-              <h3>Parsed Bank Statement Matches</h3>
-              <span class="badge badge-amber" id="reconcile-match-count">0 Matches Found</span>
-            </div>
-            <div class="card-body">
-              <div class="table-container mb-2">
-                <table class="data-table" id="reconcile-preview-table">
-                  <thead>
-                    <tr>
-                      <th style="width: 40px; text-align: center;"><input type="checkbox" id="reconcile-select-all" checked></th>
-                      <th>Txn Date</th>
-                      <th>Transaction Narration</th>
-                      <th>Txn Amount</th>
-                      <th>Matched Zoho Invoice</th>
-                      <th>Vendor</th>
-                      <th>Bill Balance</th>
-                      <th>Payment UTR</th>
-                      <th>Match Status</th>
-                    </tr>
-                  </thead>
-                  <tbody id="reconcile-preview-tbody">
-                    <!-- Loaded dynamically -->
-                  </tbody>
-                </table>
-              </div>
-              <div class="text-right">
-                <button class="btn btn-primary" id="btn-apply-reconciled">
-                  🚀 Mark Selected Payments as Paid in Zoho
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- List of generated payment summaries and bank uploads -->
-          <div class="grid-layout cols-2">
-            <!-- Bank Upload Sheets Card (XLSX) -->
-            <div class="card glass shadow">
-              <div class="card-header border-bottom">
-                <h3>Bank Excel Spreadsheet Uploads (.xlsx)</h3>
-                <span class="badge badge-emerald">Ready for Upload</span>
-              </div>
-              <div class="card-body p-0">
-                <ul class="file-download-list" id="xlsx-downloads-list">
-                  <li class="empty-list">No bank files generated yet. Click generate above.</li>
-                </ul>
-              </div>
-            </div>
-
-            <!-- CSV Payment Summaries Card -->
-            <div class="card glass shadow">
-              <div class="card-header border-bottom">
-                <h3>Payment Summary Sheets (.csv)</h3>
-                <span class="badge badge-indigo">Internal Auditing</span>
-              </div>
-              <div class="card-body p-0">
-                <ul class="file-download-list" id="csv-downloads-list">
-                  <li class="empty-list">No summaries generated yet. Click generate above.</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- 5. NOTIFICATIONS TAB -->
+        <!-- =================================================================== -->
+        <!-- 5. AUDIT & NOTIFICATIONS TAB -->
+        <!-- =================================================================== -->
         <section class="tab-panel" id="panel-notifications">
-          <!-- Stats Summary row -->
           <div class="grid-layout cols-3 mb-2">
-            <div class="card glass stat-card">
+            <div class="card glass stat-card shadow">
               <div class="stat-content">
                 <span class="stat-label">Total Notified</span>
-                <span class="stat-number" id="notif-count-sent">0</span>
+                <span class="stat-number emerald-text" id="notif-count-sent">0</span>
               </div>
-              <div class="stat-icon green">📧</div>
+              <div class="stat-icon emerald">📧</div>
             </div>
             
-            <div class="card glass stat-card">
+            <div class="card glass stat-card shadow">
               <div class="stat-content">
                 <span class="stat-label">Pending Send</span>
-                <span class="stat-number" id="notif-count-pending">0</span>
+                <span class="stat-number amber-text" id="notif-count-pending">0</span>
               </div>
               <div class="stat-icon amber">⏳</div>
             </div>
 
-            <div class="card glass stat-card">
+            <div class="card glass stat-card shadow">
               <div class="stat-content">
                 <span class="stat-label">Errors</span>
-                <span class="stat-number" id="notif-count-failed">0</span>
+                <span class="stat-number red-text" id="notif-count-failed">0</span>
               </div>
               <div class="stat-icon red">⚠️</div>
             </div>
           </div>
 
-          <!-- Controls and table -->
           <div class="card glass shadow">
-            <div class="card-header border-bottom flex-row justify-between align-center" style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="card-header border-bottom flex-row justify-between align-center">
               <div>
-                <h3>Recent Vendor Payments</h3>
-                <p class="subtext">Scan past payments from Zoho Books and verify their email notification statuses.</p>
+                <h3>Recent Vendor Payments & Delivery Audit</h3>
+                <p class="subtext">Scan past payments from Zoho Books and verify email notification status.</p>
               </div>
-              <div style="display: flex; gap: 12px; align-items: center;">
-                <button class="btn btn-secondary" id="btn-refresh-notifications" style="padding: 6px 12px; font-size: 13px;">
-                  🔄 Refresh List
-                </button>
-              </div>
+              <button class="btn btn-secondary btn-sm" id="btn-refresh-notifications">🔄 Refresh History</button>
             </div>
             <div class="card-body p-0">
               <div class="table-container">
@@ -715,7 +809,7 @@
                   </thead>
                   <tbody id="notifications-tbody">
                     <tr>
-                      <td colspan="8" class="text-center text-muted" style="padding: 24px;">Loading vendor payment notifications history...</td>
+                      <td colspan="8" class="text-center text-muted p-3">Loading vendor payment notification history...</td>
                     </tr>
                   </tbody>
                 </table>
@@ -724,7 +818,9 @@
           </div>
         </section>
 
-        <!-- 6. CONFIGURATION TAB -->
+        <!-- =================================================================== -->
+        <!-- 6. SETTINGS & CONFIG TAB -->
+        <!-- =================================================================== -->
         <section class="tab-panel" id="panel-config">
           <div class="card glass shadow max-w-lg">
             <div class="card-header border-bottom">
@@ -733,30 +829,26 @@
             </div>
             <div class="card-body">
               <p class="desc-text mb-2">
-                Manage the workspace directories and automation defaults. Saving updates will instantly modify the local `.env` configuration file.
+                Manage workspace directories and automation defaults. Saving will update local `.env` configuration.
               </p>
 
               <form id="config-settings-form" class="review-form">
                 <div class="form-section-title">Workflow Target Folders</div>
                 <div class="form-group">
-                  <label for="c-invoices-dir">Invoices Pending input Directory</label>
+                  <label for="c-invoices-dir">Invoices Pending Input Directory</label>
                   <input type="text" id="c-invoices-dir" required placeholder="./data/invoices">
-                  <span class="form-tip">Directory to scan for raw PDF invoice files. Can be absolute or relative path.</span>
                 </div>
                 <div class="form-group mt-1">
                   <label for="c-archive-dir">Processed Invoices Archive Directory</label>
                   <input type="text" id="c-archive-dir" required placeholder="./data/invoices/archive">
-                  <span class="form-tip">Where successfully uploaded invoices are archived. Can be absolute or relative path.</span>
                 </div>
                 <div class="form-group mt-1">
                   <label for="c-payments-summary-dir">Payment CSV Summaries Directory</label>
                   <input type="text" id="c-payments-summary-dir" required placeholder="./data/payments_summary">
-                  <span class="form-tip">Where CSV summaries of unpaid bills are output. Can be absolute or relative.</span>
                 </div>
                 <div class="form-group mt-1">
-                  <label for="c-bank-upload-dir">Bank Excel Spreadsheet Uploads Directory</label>
+                  <label for="c-bank-upload-dir">Bank Excel Uploads Directory</label>
                   <input type="text" id="c-bank-upload-dir" required placeholder="./data/bank_payment_upload">
-                  <span class="form-tip">Where XLSX sheets for bulk bank payment upload are output. Can be absolute or relative.</span>
                 </div>
 
                 <div class="form-section-title mt-2">Organization & Currency Rules</div>
@@ -770,11 +862,11 @@
                     <input type="text" id="c-org-gst" placeholder="Your GST Number">
                   </div>
                   <div class="form-group">
-                    <label for="c-org-state">Organization State (for Tax matches)</label>
-                    <input type="text" id="c-org-state" placeholder="State Name (e.g. Maharashtra)">
+                    <label for="c-org-state">Organization State (Tax Matching)</label>
+                    <input type="text" id="c-org-state" placeholder="e.g. Maharashtra">
                   </div>
                   <div class="form-group">
-                    <label for="c-currencies">Target Currencies (Comma-separated)</label>
+                    <label for="c-currencies">Target Currencies</label>
                     <input type="text" id="c-currencies" placeholder="e.g. USD,AUD,EUR">
                   </div>
                 </div>
@@ -783,7 +875,7 @@
                 <div class="form-grid cols-2">
                   <div class="form-group">
                     <label for="c-gemini-model">Gemini Model</label>
-                    <input type="text" id="c-gemini-model" required placeholder="gemini-1.5-flash">
+                    <input type="text" id="c-gemini-model" required placeholder="gemini-flash-latest">
                   </div>
                   <div class="form-group">
                     <label for="c-advice-format">Bank Advice Text Format</label>
@@ -801,10 +893,9 @@
 
       </div>
     </main>
-
   </div>
 
-  <!-- EXTRACTION LOADING OVERLAY -->
+  <!-- EXTRACTION LOADER MODAL OVERLAY -->
   <div class="modal-overlay" id="extraction-loader-overlay">
     <div class="card glass text-center p-2" style="max-width: 400px; display: flex; flex-direction: column; align-items: center; gap: 20px; border-color: var(--accent-primary); border-width: 1px;">
       <div class="upload-icon" style="font-size: 50px; margin-bottom: 0;">🔮</div>
@@ -924,7 +1015,7 @@
 
   <!-- EMAIL SYNC TERMINAL MODAL OVERLAY -->
   <div class="modal-overlay" id="email-sync-modal">
-    <div class="modal-card glass shadow" style="max-width: 700px; width: 90%;">
+    <div class="modal-card glass shadow" style="max-width: 750px; width: 90%;">
       <div class="modal-header border-bottom">
         <h3>Office 365 Email Ingestion Console</h3>
         <button class="btn-modal-close" id="btn-close-email-sync">✕</button>
@@ -943,6 +1034,6 @@
     </div>
   </div>
 
-  <script src="app.js" type="module"></script>
+  <script src="app.js"></script>
 </body>
 </html>

@@ -175,7 +175,16 @@ export async function runEmailSync(zoho: ZohoClient, options: { dryRun: boolean 
           
           syncLog(`🤖 Passing invoice to Gemini AI and Zoho client...`);
           // autoCreateVendor is set to true
-          const success = await processInvoice(tempFilePath, zoho, orgGst, orgName, orgState, options.dryRun, true);
+          const success = await processInvoice(
+            tempFilePath, 
+            zoho, 
+            orgGst, 
+            orgName, 
+            orgState, 
+            options.dryRun, 
+            true,
+            { subject, fromEmail }
+          );
           
           if (success) {
             syncLog(`✅ Successfully recorded invoice: ${pdf.name}`);

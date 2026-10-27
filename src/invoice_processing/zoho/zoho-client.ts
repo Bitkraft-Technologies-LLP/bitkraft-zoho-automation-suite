@@ -126,34 +126,64 @@ export class ZohoClient {
     return this.tokenRequestPromise;
   }
 
+  public clearTokenCache() {
+    this.accessToken = null;
+    try {
+      if (fs.existsSync(this.tokenCachePath)) {
+        fs.unlinkSync(this.tokenCachePath);
+      }
+    } catch (err: any) {
+      console.warn("Failed to delete token cache file:", err.message);
+    }
+  }
+
+  private async requestWithRetry<T>(requestFn: (token: string) => Promise<T>): Promise<T> {
+    let token = await this.getAccessToken();
+    try {
+      return await requestFn(token);
+    } catch (error: any) {
+      const is401 = error.response?.status === 401 ||
+                    error.response?.data?.code === 57 ||
+                    (typeof error.response?.data?.message === "string" && error.response.data.message.includes("authtoken"));
+      if (is401) {
+        console.warn("Zoho token invalid or expired (401). Clearing token cache & retrying...");
+        this.clearTokenCache();
+        token = await this.getAccessToken();
+        return await requestFn(token);
+      }
+      throw error;
+    }
+  }
+
   async getOrganization() {
-    const token = await this.getAccessToken();
-    const url = `https://www.zohoapis.${this.region}/books/v3/organizations/${this.orgId}?organization_id=${this.orgId}`;
-    const response = await axios.get(url, {
-      headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    return this.requestWithRetry(async (token) => {
+      const url = `https://www.zohoapis.${this.region}/books/v3/organizations/${this.orgId}?organization_id=${this.orgId}`;
+      const response = await axios.get(url, {
+        headers: { Authorization: `Zoho-oauthtoken ${token}` },
+      });
+      return response.data.organization;
     });
-    return response.data.organization;
   }
 
   async createBill(billData: any) {
-    const token = await this.getAccessToken();
-    const url = `https://www.zohoapis.${this.region}/books/v3/bills?organization_id=${this.orgId}`;
-
-    try {
-      const response = await axios.post(url, billData, {
-        headers: {
-          Authorization: `Zoho-oauthtoken ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      return response.data;
-    } catch (error: any) {
-      console.error(
-        "Failed to create bill in Zoho:",
-        error.response?.data || error.message,
-      );
-      throw error;
-    }
+    return this.requestWithRetry(async (token) => {
+      const url = `https://www.zohoapis.${this.region}/books/v3/bills?organization_id=${this.orgId}`;
+      try {
+        const response = await axios.post(url, billData, {
+          headers: {
+            Authorization: `Zoho-oauthtoken ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        return response.data;
+      } catch (error: any) {
+        console.error(
+          "Failed to create bill in Zoho:",
+          error.response?.data || error.message,
+        );
+        throw error;
+      }
+    });
   }
 
   public clearVendorsCache() {
@@ -164,13 +194,14 @@ export class ZohoClient {
   async getVendors(): Promise<any[]> {
     if (this.cache.vendors) return this.cache.vendors;
     
-    const token = await this.getAccessToken();
-    const url = `https://www.zohoapis.${this.region}/books/v3/vendors?organization_id=${this.orgId}`;
-    const response = await axios.get(url, {
-      headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    return this.requestWithRetry(async (token) => {
+      const url = `https://www.zohoapis.${this.region}/books/v3/vendors?organization_id=${this.orgId}`;
+      const response = await axios.get(url, {
+        headers: { Authorization: `Zoho-oauthtoken ${token}` },
+      });
+      this.cache.vendors = response.data.contacts || [];
+      return this.cache.vendors!;
     });
-    this.cache.vendors = response.data.contacts || [];
-    return this.cache.vendors!;
   }
 
   async getVendor(vendorId: string) {
@@ -178,185 +209,223 @@ export class ZohoClient {
       return this.cache.vendorDetails.get(vendorId);
     }
 
-    const token = await this.getAccessToken();
-    const url = `https://www.zohoapis.${this.region}/books/v3/contacts/${vendorId}?organization_id=${this.orgId}`;
-    const response = await axios.get(url, {
-      headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    return this.requestWithRetry(async (token) => {
+      const url = `https://www.zohoapis.${this.region}/books/v3/contacts/${vendorId}?organization_id=${this.orgId}`;
+      const response = await axios.get(url, {
+        headers: { Authorization: `Zoho-oauthtoken ${token}` },
+      });
+      const vendor = response.data.contact;
+      this.cache.vendorDetails.set(vendorId, vendor);
+      return vendor;
     });
-    const vendor = response.data.contact;
-    this.cache.vendorDetails.set(vendorId, vendor);
-    return vendor;
   }
 
   async createVendor(vendorData: any) {
-    const token = await this.getAccessToken();
-    const url = `https://www.zohoapis.${this.region}/books/v3/contacts?organization_id=${this.orgId}`;
-    
-    // Ensure contact_type is vendor
-    const payload = { ...vendorData, contact_type: "vendor" };
+    return this.requestWithRetry(async (token) => {
+      const url = `https://www.zohoapis.${this.region}/books/v3/contacts?organization_id=${this.orgId}`;
+      const payload = { ...vendorData, contact_type: "vendor" };
 
-    try {
-      const response = await axios.post(url, payload, {
-        headers: {
-          Authorization: `Zoho-oauthtoken ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      this.clearVendorsCache();
-      return response.data.contact;
-    } catch (error: any) {
-      console.error(
-        "Failed to create vendor in Zoho:",
-         error.response?.data || error.message,
-      );
-      throw error;
-    }
+      try {
+        const response = await axios.post(url, payload, {
+          headers: {
+            Authorization: `Zoho-oauthtoken ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        this.clearVendorsCache();
+        return response.data.contact;
+      } catch (error: any) {
+        console.error(
+          "Failed to create vendor in Zoho:",
+          error.response?.data || error.message,
+        );
+        throw error;
+      }
+    });
   }
 
   async updateVendor(vendorId: string, vendorData: any) {
-    const token = await this.getAccessToken();
-    const url = `https://www.zohoapis.${this.region}/books/v3/contacts/${vendorId}?organization_id=${this.orgId}`;
-    
-    try {
-      const response = await axios.put(url, vendorData, {
-        headers: {
-          Authorization: `Zoho-oauthtoken ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      this.clearVendorsCache();
-      return response.data.contact;
-    } catch (error: any) {
-      console.error(
-        `Failed to update vendor ${vendorId} in Zoho:`,
-        error.response?.data || error.message,
-      );
-      throw error;
-    }
+    return this.requestWithRetry(async (token) => {
+      const url = `https://www.zohoapis.${this.region}/books/v3/contacts/${vendorId}?organization_id=${this.orgId}`;
+      try {
+        const response = await axios.put(url, vendorData, {
+          headers: {
+            Authorization: `Zoho-oauthtoken ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        this.clearVendorsCache();
+        return response.data.contact;
+      } catch (error: any) {
+        console.error(
+          `Failed to update vendor ${vendorId} in Zoho:`,
+          error.response?.data || error.message,
+        );
+        throw error;
+      }
+    });
   }
 
   async getAccounts(): Promise<any[]> {
     if (this.cache.accounts) return this.cache.accounts;
 
-    const token = await this.getAccessToken();
-    const url = `https://www.zohoapis.${this.region}/books/v3/chartofaccounts?organization_id=${this.orgId}`;
-    const response = await axios.get(url, {
-      headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    return this.requestWithRetry(async (token) => {
+      const url = `https://www.zohoapis.${this.region}/books/v3/chartofaccounts?organization_id=${this.orgId}`;
+      const response = await axios.get(url, {
+        headers: { Authorization: `Zoho-oauthtoken ${token}` },
+      });
+      this.cache.accounts = response.data.chartofaccounts || [];
+      return this.cache.accounts!;
     });
-    this.cache.accounts = response.data.chartofaccounts || [];
-    return this.cache.accounts!;
   }
 
   async getTaxes(): Promise<any[]> {
     if (this.cache.taxes) return this.cache.taxes;
 
-    const token = await this.getAccessToken();
-    const url = `https://www.zohoapis.${this.region}/books/v3/settings/taxes?organization_id=${this.orgId}`;
-    const response = await axios.get(url, {
-      headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    return this.requestWithRetry(async (token) => {
+      const url = `https://www.zohoapis.${this.region}/books/v3/settings/taxes?organization_id=${this.orgId}`;
+      const response = await axios.get(url, {
+        headers: { Authorization: `Zoho-oauthtoken ${token}` },
+      });
+      this.cache.taxes = response.data.taxes || [];
+      return this.cache.taxes!;
     });
-    this.cache.taxes = response.data.taxes || [];
-    return this.cache.taxes!;
   }
 
   async uploadAttachment(billId: string, filePath: string) {
-    const token = await this.getAccessToken();
-    const url = `https://www.zohoapis.${this.region}/books/v3/bills/${billId}/attachment?organization_id=${this.orgId}`;
-    
-    const form = new FormData();
-    form.append("attachment", fs.createReadStream(filePath));
+    return this.requestWithRetry(async (token) => {
+      const url = `https://www.zohoapis.${this.region}/books/v3/bills/${billId}/attachment?organization_id=${this.orgId}`;
+      const form = new FormData();
+      form.append("attachment", fs.createReadStream(filePath));
 
-    try {
-      const response = await axios.post(url, form, {
-        headers: {
-          ...form.getHeaders(),
-          Authorization: `Zoho-oauthtoken ${token}`,
-        },
-      });
-      return response.data;
-    } catch (error: any) {
-      console.error(
-        "Failed to upload attachment to Zoho:",
-        error.response?.data || error.message,
-      );
-      throw error;
-    }
+      try {
+        const response = await axios.post(url, form, {
+          headers: {
+            ...form.getHeaders(),
+            Authorization: `Zoho-oauthtoken ${token}`,
+          },
+        });
+        return response.data;
+      } catch (error: any) {
+        console.error(
+          "Failed to upload attachment to Zoho:",
+          error.response?.data || error.message,
+        );
+        throw error;
+      }
+    });
   }
 
   async getBills(params: any = {}) {
-    const token = await this.getAccessToken();
-    const url = `https://www.zohoapis.${this.region}/books/v3/bills?organization_id=${this.orgId}`;
-    const response = await axios.get(url, {
-      headers: { Authorization: `Zoho-oauthtoken ${token}` },
-      params: params
+    return this.requestWithRetry(async (token) => {
+      const url = `https://www.zohoapis.${this.region}/books/v3/bills?organization_id=${this.orgId}`;
+      const response = await axios.get(url, {
+        headers: { Authorization: `Zoho-oauthtoken ${token}` },
+        params: params
+      });
+      return response.data.bills || [];
     });
-    return response.data.bills || [];
   }
 
   async createVendorPayment(paymentData: any) {
-    const token = await this.getAccessToken();
-    const url = `https://www.zohoapis.${this.region}/books/v3/vendorpayments?organization_id=${this.orgId}`;
-
-    try {
-      const response = await axios.post(url, paymentData, {
-        headers: {
-          Authorization: `Zoho-oauthtoken ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      return response.data;
-    } catch (error: any) {
-      console.error(
-        "Failed to create vendor payment in Zoho:",
-        error.response?.data || error.message,
-      );
-      throw error;
-    }
+    return this.requestWithRetry(async (token) => {
+      const url = `https://www.zohoapis.${this.region}/books/v3/vendorpayments?organization_id=${this.orgId}`;
+      try {
+        const response = await axios.post(url, paymentData, {
+          headers: {
+            Authorization: `Zoho-oauthtoken ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        return response.data;
+      } catch (error: any) {
+        console.error(
+          "Failed to create vendor payment in Zoho:",
+          error.response?.data || error.message,
+        );
+        throw error;
+      }
+    });
   }
 
   async getVendorPayments(params: any = {}) {
-    const token = await this.getAccessToken();
-    const url = `https://www.zohoapis.${this.region}/books/v3/vendorpayments?organization_id=${this.orgId}`;
-    const response = await axios.get(url, {
-      headers: { Authorization: `Zoho-oauthtoken ${token}` },
-      params: params
+    return this.requestWithRetry(async (token) => {
+      const url = `https://www.zohoapis.${this.region}/books/v3/vendorpayments?organization_id=${this.orgId}`;
+      const response = await axios.get(url, {
+        headers: { Authorization: `Zoho-oauthtoken ${token}` },
+        params: params
+      });
+      return response.data.vendorpayments || [];
     });
-    return response.data.vendorpayments || [];
   }
 
   async getVendorPaymentEmailContent(paymentId: string) {
-    const token = await this.getAccessToken();
-    const url = `https://www.zohoapis.${this.region}/books/v3/vendorpayments/${paymentId}/email?organization_id=${this.orgId}`;
-    const response = await axios.get(url, {
-      headers: { Authorization: `Zoho-oauthtoken ${token}` }
+    return this.requestWithRetry(async (token) => {
+      const url = `https://www.zohoapis.${this.region}/books/v3/vendorpayments/${paymentId}/email?organization_id=${this.orgId}`;
+      const response = await axios.get(url, {
+        headers: { Authorization: `Zoho-oauthtoken ${token}` }
+      });
+      return response.data.email_template || response.data.data || response.data;
     });
-    return response.data.email_template || response.data.data || response.data;
   }
 
   async sendVendorPaymentEmailViaZoho(paymentId: string, emailData: any) {
-    const token = await this.getAccessToken();
-    const url = `https://www.zohoapis.${this.region}/books/v3/vendorpayments/${paymentId}/email?organization_id=${this.orgId}`;
-    const payload = {
-      send_from_org_email_id: emailData.send_from_org_email_id ?? false,
-      to_mail_ids: emailData.to_mail_ids,
-      subject: emailData.subject,
-      body: emailData.body
-    };
+    return this.requestWithRetry(async (token) => {
+      const url = `https://www.zohoapis.${this.region}/books/v3/vendorpayments/${paymentId}/email?organization_id=${this.orgId}`;
+      const payload = {
+        send_from_org_email_id: emailData.send_from_org_email_id ?? false,
+        to_mail_ids: emailData.to_mail_ids,
+        subject: emailData.subject,
+        body: emailData.body
+      };
 
-    try {
-      const response = await axios.post(url, payload, {
-        headers: {
-          Authorization: `Zoho-oauthtoken ${token}`,
-          "Content-Type": "application/json",
-        },
+      try {
+        const response = await axios.post(url, payload, {
+          headers: {
+            Authorization: `Zoho-oauthtoken ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        return response.data;
+      } catch (error: any) {
+        console.error(
+          `Failed to send vendor payment email in Zoho for ID ${paymentId}:`,
+          error.response?.data || error.message,
+        );
+        throw error;
+      }
+    });
+  }
+
+  async getInvoices(params: any = {}) {
+    return this.requestWithRetry(async (token) => {
+      const url = `https://www.zohoapis.${this.region}/books/v3/invoices?organization_id=${this.orgId}`;
+      const response = await axios.get(url, {
+        headers: { Authorization: `Zoho-oauthtoken ${token}` },
+        params: params
       });
-      return response.data;
-    } catch (error: any) {
-      console.error(
-        `Failed to send vendor payment email in Zoho for ID ${paymentId}:`,
-        error.response?.data || error.message,
-      );
-      throw error;
-    }
+      return response.data.invoices || [];
+    });
+  }
+
+  async createCustomerPayment(paymentData: any) {
+    return this.requestWithRetry(async (token) => {
+      const url = `https://www.zohoapis.${this.region}/books/v3/customerpayments?organization_id=${this.orgId}`;
+      try {
+        const response = await axios.post(url, paymentData, {
+          headers: {
+            Authorization: `Zoho-oauthtoken ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        return response.data;
+      } catch (error: any) {
+        console.error(
+          "Failed to create customer payment in Zoho:",
+          error.response?.data || error.message,
+        );
+        throw error;
+      }
+    });
   }
 }
