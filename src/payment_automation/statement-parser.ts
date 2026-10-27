@@ -118,13 +118,22 @@ export function parseSpreadsheetBankStatement(filePath: string): StatementTransa
     if (!Array.isArray(row)) continue;
 
     const tempMap = { date: -1, narration: -1, amount: -1, debit: -1, credit: -1, ref: -1, type: -1 };
+    let balanceCol = -1;
 
     for (let j = 0; j < row.length; j++) {
       const cellVal = String(row[j] || "").trim().toLowerCase();
       if (!cellVal) continue;
 
-      const isDateCol = cellVal.includes("date") || cellVal === "dt";
+      // Identify balance column and ignore any balance Dr/Cr columns that appear at/after balance
+      if (cellVal.includes("balance") || cellVal === "bal") {
+        balanceCol = j;
+        continue;
+      }
+      if (balanceCol !== -1 && j >= balanceCol) {
+        continue;
+      }
 
+      const isDateCol = cellVal.includes("date") || cellVal === "dt";
       if (isDateCol) {
         if (tempMap.date === -1) {
           tempMap.date = j;
@@ -132,23 +141,17 @@ export function parseSpreadsheetBankStatement(filePath: string): StatementTransa
         continue;
       }
 
+      const isTypeCol = (cellVal.includes("dr") && cellVal.includes("cr")) || cellVal.includes("type") || cellVal === "d/c";
+
       if (narrationKeywords.some(k => cellVal.includes(k)) && tempMap.narration === -1) {
         tempMap.narration = j;
-      } else if (typeKeywords.some(k => cellVal === k || cellVal.includes(k)) && tempMap.type === -1) {
+      } else if (isTypeCol && tempMap.type === -1) {
         tempMap.type = j;
-      } else if (debitKeywords.some(k => cellVal === k || cellVal.includes(k)) && tempMap.debit === -1) {
-        if (cellVal.includes("dr") && (cellVal.includes("cr") || cellVal.includes("type") || cellVal.includes("/"))) {
-          tempMap.type = j;
-        } else {
-          tempMap.debit = j;
-        }
-      } else if (creditKeywords.some(k => cellVal === k || cellVal.includes(k)) && tempMap.credit === -1) {
-        if (cellVal.includes("dr") && (cellVal.includes("cr") || cellVal.includes("type") || cellVal.includes("/"))) {
-          tempMap.type = j;
-        } else {
-          tempMap.credit = j;
-        }
-      } else if (amountKeywords.some(k => cellVal === k || cellVal.includes(k)) && tempMap.amount === -1) {
+      } else if (debitKeywords.some(k => cellVal === k || cellVal.includes(k)) && !isTypeCol && tempMap.debit === -1) {
+        tempMap.debit = j;
+      } else if (creditKeywords.some(k => cellVal === k || cellVal.includes(k)) && !isTypeCol && tempMap.credit === -1) {
+        tempMap.credit = j;
+      } else if (amountKeywords.some(k => cellVal === k || cellVal.includes(k)) && !cellVal.includes("date") && tempMap.amount === -1) {
         tempMap.amount = j;
       } else if (refKeywords.some(k => cellVal === k || cellVal.includes(k)) && tempMap.ref === -1) {
         tempMap.ref = j;

@@ -14,6 +14,8 @@ import { runEmailSync, setSyncLogger } from "../invoice_processing/email-process
 import { runPaymentEmailSync } from "../invoice_processing/payment-email-processor";
 import { NotificationStore } from "../payment_automation/notification-store";
 import { NotificationService } from "../payment_automation/notification-service";
+import { loadBankStatement } from "../payment_automation/statement-parser";
+import { PaymentMatcher } from "../payment_automation/payment-matcher";
 
 // Load environment variables
 dotenv.config();
@@ -1252,83 +1254,22 @@ app.post("/api/payment/upload-statement", uploadStatement.single("statement"), a
     }
 
     const filePath = req.file.path;
-    const ext = path.extname(req.file.originalname).toLowerCase();
-    const transactions = ext === ".pdf" 
-      ? await parsePDFBankStatement(filePath) 
-      : parseBankStatement(filePath);
+    const allTransactions = await loadBankStatement(filePath);
+    const transactions = allTransactions.filter(t => t.type !== "credit");
 
     const zoho = getZoho();
     const unpaidBills = await zoho.getBills({ status: "unpaid" });
     const partiallyPaid = await zoho.getBills({ status: "partially_paid" });
     const allUnpaid = [...unpaidBills, ...partiallyPaid];
 
-    // De-duplicate by bill_id
-    const seenIds = new Set<string>();
-    const allBills = allUnpaid.filter((bill: any) => {
-      if (seenIds.has(bill.bill_id)) return false;
-      seenIds.add(bill.bill_id);
-      return true;
-    });
+    const { matches: rawMatches, unmatched } = PaymentMatcher.matchTransactions(transactions, allUnpaid);
 
-    const matches: any[] = [];
-    const unmatched: any[] = [];
-
-    for (const txn of transactions) {
-      let matchedBill: any = null;
-      let matchStatus: "exact" | "amount_mismatch" | "none" = "none";
-
-      for (const bill of allBills) {
-        const billNum = (bill.bill_number || "").toLowerCase();
-        const cleanedBillNum = (bill.bill_number || "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-        const narration = (txn.narration || "").toLowerCase();
-        const ref = (txn.reference || "").toLowerCase();
-        const explicitBill = (txn.billNumber || "").toLowerCase();
-        const vendorName = (txn.vendorName || "").toLowerCase();
-        const billVendor = (bill.vendor_name || "").toLowerCase();
-
-        // Match if invoice number or cleaned invoice number is present
-        const isBillNumMatch = 
-          (explicitBill && explicitBill === billNum) ||
-          (billNum.length >= 3 && (narration.includes(billNum) || narration.includes(cleanedBillNum) || ref.includes(billNum)));
-
-        if (isBillNumMatch) {
-          matchedBill = bill;
-          if (Math.abs(txn.amount - bill.balance) < 0.05) {
-            matchStatus = "exact";
-            break;
-          } else {
-            matchStatus = "amount_mismatch";
-          }
-        } else if (!matchedBill && billVendor.length >= 3) {
-          // Vendor name + exact amount match fallback
-          const isVendorMatch = narration.includes(billVendor) || (vendorName && vendorName.includes(billVendor));
-          if (isVendorMatch && Math.abs(txn.amount - bill.balance) < 0.05) {
-            matchedBill = bill;
-            matchStatus = "exact";
-            break;
-          }
-        }
-      }
-
-      if (matchedBill) {
-        matches.push({
-          transaction: txn,
-          bill: {
-            bill_id: matchedBill.bill_id,
-            bill_number: matchedBill.bill_number,
-            vendor_name: matchedBill.vendor_name,
-            vendor_id: matchedBill.vendor_id,
-            total: matchedBill.total,
-            balance: matchedBill.balance,
-            date: matchedBill.date,
-            due_date: matchedBill.due_date
-          },
-          matchStatus,
-        });
-      } else {
-        unmatched.push(txn);
-      }
-    }
+    const matches = rawMatches.map(m => ({
+      transaction: m.transaction,
+      bill: m.bill,
+      matchStatus: (m.confidence === "EXACT" || m.confidence === "HIGH") ? "exact" : "amount_mismatch",
+      reason: m.reason
+    }));
 
     res.json({
       success: true,

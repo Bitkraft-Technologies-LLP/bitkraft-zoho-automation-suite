@@ -45,6 +45,68 @@ export interface CustomerMatchResult {
   reason: string;
 }
 
+/**
+ * Normalizes vendor/company names by stripping common corporate suffixes and punctuation.
+ */
+export function cleanEntityName(name: string): string {
+  return (name || "")
+    .toLowerCase()
+    .replace(/\b(limited|ltd|private|pvt|llp|inc|corporation|corp|solutions|technologies|services|telemedia|india)\b/gi, "")
+    .replace(/[^a-z0-9]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Checks whether an entity name matches a bank narration or payee name.
+ */
+export function isEntityMatch(narration: string, entityName: string, explicitEntityName?: string): boolean {
+  if (!entityName || entityName.length < 3) return false;
+
+  const normNarr = (narration || "").toLowerCase().replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ");
+  const normEntity = cleanEntityName(entityName);
+  const rawEntityLower = entityName.toLowerCase().replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ");
+
+  // 1. Direct or cleaned substring match
+  if (normNarr.includes(rawEntityLower) || (normEntity.length >= 3 && normNarr.includes(normEntity))) {
+    return true;
+  }
+
+  // 2. Explicit entity comparison if present
+  if (explicitEntityName) {
+    const normExplicit = cleanEntityName(explicitEntityName);
+    if (normEntity.length >= 3 && (normEntity.includes(normExplicit) || normExplicit.includes(normEntity))) {
+      return true;
+    }
+  }
+
+  // 3. UPI Payee extraction: UPI/<Payee>/<Bank>/...
+  const upiMatch = narration.match(/UPI\/([^\/]+)\//i);
+  if (upiMatch && upiMatch[1]) {
+    const upiPayee = cleanEntityName(upiMatch[1]);
+    if (upiPayee.length >= 3) {
+      if (normEntity.includes(upiPayee) || upiPayee.includes(normEntity)) {
+        return true;
+      }
+    }
+  }
+
+  // 4. Token-based matching: all significant words (length >= 3) of entity are present
+  const tokens = normEntity.split(" ").filter(t => t.length >= 3);
+  if (tokens.length > 0 && tokens.every(t => normNarr.includes(t))) {
+    return true;
+  }
+
+  // 5. Typo tolerance: e.g. "Bharati" vs "Bharti"
+  const fuzzyEntity = normEntity.replace(/bharati/g, "bharti");
+  const fuzzyNarr = normNarr.replace(/bharati/g, "bharti");
+  if (fuzzyEntity.length >= 3 && fuzzyNarr.includes(fuzzyEntity)) {
+    return true;
+  }
+
+  return false;
+}
+
 export class PaymentMatcher {
   /**
    * Matches raw statement or email transaction records against unpaid Zoho Books vendor bills.
@@ -68,15 +130,13 @@ export class PaymentMatcher {
 
       const narrationLower = (txn.narration || "").toLowerCase();
       const refLower = (txn.reference || "").toLowerCase();
-      const vendorLower = (txn.vendorName || "").toLowerCase();
       const explicitBillNum = (txn.billNumber || "").toLowerCase();
 
+      // Tier 1: Direct Bill Number exact match
       for (const bill of uniqueBills) {
         const billNumLower = (bill.bill_number || "").toLowerCase();
         const cleanedBillNum = (bill.bill_number || "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-        const billVendorLower = (bill.vendor_name || "").toLowerCase();
 
-        // 1. Direct Bill Number match (if provided or present in narration / reference)
         const hasBillNumMatch = 
           (explicitBillNum && explicitBillNum === billNumLower) ||
           (billNumLower.length >= 3 && (narrationLower.includes(billNumLower) || narrationLower.includes(cleanedBillNum) || refLower.includes(billNumLower)));
@@ -87,23 +147,29 @@ export class PaymentMatcher {
           if (diff < 0.05) {
             confidence = "EXACT";
             reason = `Matched bill number "${bill.bill_number}" with exact amount ₹${txn.amount}`;
+            break;
           } else {
             confidence = "AMOUNT_MISMATCH";
             reason = `Matched bill number "${bill.bill_number}" (Balance: ₹${bill.balance}, Paid: ₹${txn.amount})`;
           }
-          break;
         }
+      }
 
-        // 2. Vendor Name + Exact Amount match fallback
-        if (!bestMatch && billVendorLower.length >= 3) {
-          const isVendorMatch = narrationLower.includes(billVendorLower) || (vendorLower && vendorLower.includes(billVendorLower));
-          const isExactAmount = Math.abs(txn.amount - bill.balance) < 0.05;
-
-          if (isVendorMatch && isExactAmount) {
-            bestMatch = bill;
-            confidence = "HIGH";
-            reason = `Matched vendor "${bill.vendor_name}" and exact amount ₹${txn.amount}`;
-            break;
+      // Tier 2: Vendor Name + Exact Amount match (if not already exact matched by bill number)
+      if (!bestMatch || confidence !== "EXACT") {
+        for (const bill of uniqueBills) {
+          if (isEntityMatch(txn.narration, bill.vendor_name, txn.vendorName)) {
+            const diff = Math.abs(txn.amount - bill.balance);
+            if (diff < 0.05) {
+              bestMatch = bill;
+              confidence = "EXACT";
+              reason = `Matched vendor "${bill.vendor_name}" with exact bill balance ₹${txn.amount}`;
+              break;
+            } else if (!bestMatch) {
+              bestMatch = bill;
+              confidence = "AMOUNT_MISMATCH";
+              reason = `Matched vendor "${bill.vendor_name}" (Bill balance: ₹${bill.balance}, Paid: ₹${txn.amount})`;
+            }
           }
         }
       }
@@ -172,23 +238,29 @@ export class PaymentMatcher {
           if (diff < 0.05) {
             confidence = "EXACT";
             reason = `Matched customer invoice "${inv.invoice_number}" with exact amount ₹${txn.amount}`;
+            break;
           } else {
             confidence = "AMOUNT_MISMATCH";
             reason = `Matched customer invoice "${inv.invoice_number}" (Balance: ₹${inv.balance}, Received: ₹${txn.amount})`;
           }
-          break;
         }
+      }
 
-        // 2. Customer Name + Exact Amount match fallback
-        if (!bestMatch && invCustomerLower.length >= 3) {
-          const isCustomerMatch = narrationLower.includes(invCustomerLower) || (customerLower && customerLower.includes(invCustomerLower));
-          const isExactAmount = Math.abs(txn.amount - inv.balance) < 0.05;
-
-          if (isCustomerMatch && isExactAmount) {
-            bestMatch = inv;
-            confidence = "HIGH";
-            reason = `Matched customer "${inv.customer_name}" and exact amount ₹${txn.amount}`;
-            break;
+      // Tier 2: Customer Name + Exact Amount match (if not already exact matched by invoice number)
+      if (!bestMatch || confidence !== "EXACT") {
+        for (const inv of uniqueInvoices) {
+          if (isEntityMatch(txn.narration, inv.customer_name, txn.customerName)) {
+            const diff = Math.abs(txn.amount - inv.balance);
+            if (diff < 0.05) {
+              bestMatch = inv;
+              confidence = "EXACT";
+              reason = `Matched customer "${inv.customer_name}" with exact invoice balance ₹${txn.amount}`;
+              break;
+            } else if (!bestMatch) {
+              bestMatch = inv;
+              confidence = "AMOUNT_MISMATCH";
+              reason = `Matched customer "${inv.customer_name}" (Invoice balance: ₹${inv.balance}, Received: ₹${txn.amount})`;
+            }
           }
         }
       }

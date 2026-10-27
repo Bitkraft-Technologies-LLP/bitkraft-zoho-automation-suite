@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import readline from "readline";
 import { NotificationService } from "./notification-service";
 import { loadBankStatement } from "./statement-parser";
+import { PaymentMatcher } from "./payment-matcher";
 
 dotenv.config();
 
@@ -257,48 +258,16 @@ async function run() {
   }
 
   console.log(`Parsing bank statement: ${absolutePath}...`);
-  const transactions = await loadBankStatement(absolutePath);
-  console.log(`Found ${transactions.length} debit transactions.`);
+  const rawTransactions = await loadBankStatement(absolutePath);
+  const transactions = rawTransactions.filter(t => t.type !== "credit");
+  console.log(`Found ${transactions.length} debit transactions (${rawTransactions.length - transactions.length} credit/deposit transactions excluded for bill reconciliation).`);
 
   console.log("Fetching unpaid bills from Zoho Books...");
   const unpaid = await zoho.getBills({ status: "unpaid" });
   const partiallyPaid = await zoho.getBills({ status: "partially_paid" });
   const allUnpaid = [...unpaid, ...partiallyPaid];
 
-  // De-duplicate by bill_id
-  const seenIds = new Set<string>();
-  const uniqueBills = allUnpaid.filter((b: any) => {
-    if (seenIds.has(b.bill_id)) return false;
-    seenIds.add(b.bill_id);
-    return true;
-  });
-
-  const matches: any[] = [];
-  const unmatched: any[] = [];
-
-  for (const txn of transactions) {
-    let matchedBill: any = null;
-    let matchStatus = "none";
-
-    for (const bill of uniqueBills) {
-      const billNum = bill.bill_number.toLowerCase();
-      const cleanedBillNum = bill.bill_number.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-      const narration = txn.narration.toLowerCase();
-
-      if (billNum.length >= 3 && (narration.includes(billNum) || narration.includes(cleanedBillNum))) {
-        matchedBill = bill;
-        const diff = Math.abs(txn.amount - bill.balance);
-        matchStatus = diff < 0.05 ? "EXACT" : "MISMATCH";
-        if (matchStatus === "EXACT") break;
-      }
-    }
-
-    if (matchedBill) {
-      matches.push({ txn, bill: matchedBill, status: matchStatus });
-    } else {
-      unmatched.push(txn);
-    }
-  }
+  const { matches, unmatched } = PaymentMatcher.matchTransactions(transactions, allUnpaid);
 
   console.log(`\nReconciliation Summary:`);
   console.log(`- Matches Found: ${matches.length}`);
@@ -310,22 +279,23 @@ async function run() {
   }
 
   console.log("Matches details:");
-  console.log("------------------------------------------------------------------------------------------------------------------");
-  console.log(String("Bill Number").padEnd(18) + " | " + String("Vendor").padEnd(25) + " | " + String("Txn Date").padEnd(10) + " | " + String("Amount").padStart(12) + " | " + String("Bill Bal").padStart(12) + " | " + "Status");
-  console.log("------------------------------------------------------------------------------------------------------------------");
+  console.log("------------------------------------------------------------------------------------------------------------------------------------------------");
+  console.log(String("Bill Number").padEnd(18) + " | " + String("Vendor").padEnd(25) + " | " + String("Txn Date").padEnd(10) + " | " + String("Amount").padStart(12) + " | " + String("Bill Bal").padStart(12) + " | " + String("Status").padEnd(15) + " | Reason");
+  console.log("------------------------------------------------------------------------------------------------------------------------------------------------");
   for (const m of matches) {
     console.log(
       m.bill.bill_number.padEnd(18) + " | " +
       m.bill.vendor_name.substring(0, 25).padEnd(25) + " | " +
-      m.txn.date.padEnd(10) + " | " +
-      `₹${m.txn.amount.toFixed(2)}`.padStart(12) + " | " +
+      m.transaction.date.padEnd(10) + " | " +
+      `₹${m.transaction.amount.toFixed(2)}`.padStart(12) + " | " +
       `₹${m.bill.balance.toFixed(2)}`.padStart(12) + " | " +
-      m.status
+      m.confidence.padEnd(15) + " | " +
+      m.reason
     );
   }
-  console.log("------------------------------------------------------------------------------------------------------------------\n");
+  console.log("------------------------------------------------------------------------------------------------------------------------------------------------\n");
 
-  const exactMatches = matches.filter(m => m.status === "EXACT");
+  const exactMatches = matches.filter(m => m.confidence === "EXACT" || m.confidence === "HIGH");
   if (exactMatches.length === 0) {
     console.log("No EXACT matches found. Skipping automated reconciliation.");
     process.exit(0);
@@ -337,22 +307,22 @@ async function run() {
       try {
         const payload = {
           vendor_id: m.bill.vendor_id,
-          date: m.txn.date,
-          amount: m.txn.amount,
+          date: m.transaction.date,
+          amount: m.transaction.amount,
           paid_through_account_id: accountId,
           payment_mode: "Bank Transfer",
-          reference_number: m.txn.reference || "",
+          reference_number: m.transaction.reference || "",
           description: `Reconciled via CLI statement match for Bill ${m.bill.bill_number}`,
           bills: [
             {
               bill_id: m.bill.bill_id,
-              amount_applied: m.txn.amount
+              amount_applied: m.transaction.amount
             }
           ]
         };
 
         const result = await zoho.createVendorPayment(payload);
-        console.log(`✅ Success: Payment of ₹${m.txn.amount} recorded for Bill ${m.bill.bill_number} (ID: ${result.vendorpayment?.payment_id})`);
+        console.log(`✅ Success: Payment of ₹${m.transaction.amount} recorded for Bill ${m.bill.bill_number} (ID: ${result.vendorpayment?.payment_id})`);
         
         const paymentId = result.vendorpayment?.payment_id;
         if (paymentId) {
