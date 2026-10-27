@@ -19,6 +19,7 @@ _See the [Case Study Package Guide](./Zoho%20Automation%20Case%20Study/case_stud
 
 ### 📄 Invoice Processing
 
+- 🔐 **Password-Protected PDF Auto-Unlock**: Automatically detects encrypted invoices and bank statements and unlocks them using candidate passwords derived from organization GSTIN, PAN, account numbers, subject digits, filename identifiers, and a persistent vendor password registry (`data/vendor_passwords.json`)
 - 🤖 **AI-Powered Invoice Parsing**: Automatically extracts vendor details, line items, taxes, amounts, and currency from PDF invoices using Google Gemini AI
 - 📄 **Multimodal Support**: Handles both text-based and image-based (scanned) invoices
 - 🔍 **Smart Vendor Matching**: Matches vendors by GST number or name from your Zoho Books database
@@ -36,7 +37,7 @@ _See the [Case Study Package Guide](./Zoho%20Automation%20Case%20Study/case_stud
 - 📁 **Batch Processing**: Process multiple invoices at once from a directory
 - 🗄️ **Auto-Archival**: Automatically archives processed invoices to prevent reprocessing
 - ⚡ **Optimized Performance**: Internal caching for Zoho configuration (Accounts, Taxes, Vendors) to minimize API overhead and prevent rate-limiting
-- 🔑 **OAuth Token Caching**: Shares Zoho OAuth tokens across processes via `.zoho_token_cache.json` to avoid token refresh rate-limits
+- 🔑 **Resilient OAuth Token Caching & Auto-Retry**: Caches tokens across processes and wraps API calls with `requestWithRetry` to automatically invalidate stale tokens and refresh on 401 / code 57 without failing requests
 - 🛡️ **Built-in Resilience**: Automated exponential backoff retry logic for AI extraction to handle transient service spikes gracefully
 
 ### 💱 Currency Exchange Rate Automation
@@ -48,15 +49,19 @@ _See the [Case Study Package Guide](./Zoho%20Automation%20Case%20Study/case_stud
 - 🛡️ **Feed Safety**: Automatically detects and disables conflicting Exchange Rate Feeds in Zoho
 - ⏰ **Scheduled Updates**: Can be configured to run daily via cron
 
-### 🏦 Payment Processing
+### 🏦 Payment Processing & Bank Statement Reconciliation
 
-- 🏦 **Bank Payment File Generation**: Creates bank-ready XLSX and CSV files for bulk payments
+- 🏦 **Bank Payment File Generation**: Creates bank-ready XLSX and CSV files for Kotak bulk payments
 - 💼 **TDS-Aware Calculations**: Accurately calculates net payable amounts considering TDS deductions
+- 📑 **Universal Bank Statement Reconciliation**: Reconciles uploaded bank statements in **PDF**, **CSV**, and **Excel** (`.xlsx`, `.xls`) formats against unpaid vendor bills (AP) and customer sales invoices (AR)
+- 🤖 **Multimodal Statement Extraction**: Uses Gemini AI to parse multi-page PDF statements into structured transaction tables
+- 🔐 **Statement Password Auto-Decrypt**: Automatically removes PDF passwords on Kotak, HDFC, ICICI, and SBI statements using CRN, Account Number, and PAN candidates
 - ⚙️ **Configurable Paths**: All input/output directories are customizable via environment variables
 - 📊 **Payment Summaries**: Generates detailed payment summary reports in CSV format
 
-### ✉️ Vendor Payment Email Notifications
+### ✉️ Payment Advice Ingestion & Vendor Notifications
 
+- 📩 **Office 365 Payment Advice & Alert Ingestion**: Scans the shared inbox for debit confirmations, credit receipts, and attached PDF remittance advices, automatically matching and recording payments in Zoho Books
 - ✉️ **Automated Dispatch**: Automatically sends payment confirmation emails to vendors via the Zoho Books API as soon as a payment is recorded
 - 👁️ **Visual Email Preview**: View and review HTML payment receipts dynamically rendered inside a sandboxed modal directly in the browser
 - 📊 **Audit Trail Logging**: Stores sent status, timestamps, and error messages in a lightweight local JSON database (`data/vendor_payment_notifications.json`) to avoid double notifications
@@ -65,11 +70,12 @@ _See the [Case Study Package Guide](./Zoho%20Automation%20Case%20Study/case_stud
 ### 🖥️ Interactive Web Control Center Dashboard
 
 - 🎨 **Harmonious Premium UI**: Single Page Application designed around an elegant Dark HSL Slate aesthetic with glowing colors, custom animations, and glassmorphic card modules
+- ⚡ **Executive Command Center**: Quick Action Bar for instant one-click email sync, bank statement uploads, and payment file generation
 - 📄 **Split-Screen AI Reviewer**: Visual drag-and-drop zone with XHR upload progress bars, side-by-side split screen showing a scrollable PDF viewer on the left and a live-filled form editor on the right (linked to dynamic Zoho expense accounts & tax codes)
 - 💱 **Dynamic Currency Controls**: The review form currency field is fully editable — changing the currency code live-updates all symbols (`₹`→`$`→`€`), column headers, subtotals, TDS, and grand total with per-locale number formatting
 - 📧 **One-Click Email Sync**: Trigger a live scan of the Office 365 shared inbox from the dashboard; real-time processing logs are streamed directly to the terminal console via SSE
 - 💱 **Real-Time Terminal Console**: Server-Sent Events (SSE) log stream that pipes raw crawler logs straight into a beautiful terminal console window on the dashboard
-- 🏦 **One-Click Payments Hub**: Single-button trigger to scan all unpaid bills, compute Kotak advices, and download generated XLSX/CSV payment files instantly to your browser
+- 🏦 **Reconcile & Bank Hub**: Drag-and-drop support for PDF, Excel, and CSV statements with real-time match previews and batch payment application
 - ⚙️ **Visual Environment Configurator**: Configure directories, advice texts, target currencies, and Gemini parameters visually without touching raw text `.env` configurations
 - 🛡️ **Resilient Token Propagation**: Shares cached Zoho OAuth credentials between Node.js and Python processes, preventing Zoho rate-limiting blocks ("Access Denied") and ensuring clean, failsafe automation runs
 
@@ -162,17 +168,25 @@ This generates:
 - **Payment Summary CSV**: `payments_summary/unpaid_bills_MMM-YYYY.csv`
 - **Bank Upload XLSX**: `bank_payment_upload/bank_payment_MMM-YYYY.xlsx`
 
-### Reconcile Bank Statements
+### Reconcile Bank Statements (PDF, CSV, Excel)
 
 ```bash
-npx ts-node src/payment_automation/reconcile-statement.ts path/to/statement.csv
+# Reconcile PDF, CSV, XLSX, or XLS statements
+npx ts-node src/payment_automation/reconcile-statement.ts path/to/statement.pdf
 ```
 
-This parses the uploaded bank statement (supports CSV, XLSX, and XLS formats), matches debit transactions against unpaid/partially paid bills in Zoho Books by invoice description format, prints a matching summary table, and lets you record exact matched payments in Zoho Books.
+This parses the uploaded bank statement in **PDF** (via multimodal Gemini AI with automatic password unlocking for Kotak/HDFC/ICICI/SBI), **CSV**, or **Excel** (`.xlsx`, `.xls`) format. It matches debit transactions against unpaid/partially paid bills in Zoho Books by invoice description format, prints a matching summary table, and lets you record exact matched payments in Zoho Books.
 
 Options:
 - `--account-id <id>`: Explicitly define the Zoho Bank Account ID to pay through. If not provided, it tries to auto-resolve an account name containing "Kotak" or "5253078611".
 - `--yes` or `-y`: Automatically record exact matches in Zoho Books without interactive confirmation.
+
+### Sync Payment Advice Emails & Receipts
+
+Scans your Office 365 shared inbox for bank debit confirmations, credit receipts, and attached PDF payment remittance advices, auto-decrypts protected attachments, and records vendor/customer payments in Zoho Books.
+
+- **Via Dashboard**: Click **"Scan Payment Emails"** in the Reconcile & Bank Hub.
+- **Via API**: `POST /api/payment/scan-email-payments` with `{ "dryRun": false }`.
 
 ### Sync / Audit Payment Notifications (CLI)
 
@@ -257,24 +271,32 @@ All paths and formats are configurable via `.env`:
 .
 ├── src/
 │   ├── invoice_processing/
-│   │   ├── index.ts          # Main invoice processing script
+│   │   ├── index.ts                   # Main invoice processing CLI & orchestrator
+│   │   ├── email-processor.ts         # Office 365 invoice email polling & ingestion
+│   │   ├── payment-email-processor.ts # Ingests payment advice emails & records payments
 │   │   ├── parser/
-│   │   │   └── pdf-parser.ts # AI-powered PDF extraction
+│   │   │   ├── pdf-parser.ts          # AI-powered PDF invoice extraction
+│   │   │   └── pdf-decryptor.ts       # Password-protected PDF auto-unlocking
 │   │   └── zoho/
-│   │       └── zoho-client.ts # Zoho Books API client
+│   │       └── zoho-client.ts         # Resilient Zoho Books REST API client
 │   ├── currency_exchange/
-│   │   ├── fetch_icegate_rates.py   # ICEGATE rate fetcher
-│   │   ├── update_zoho_rates.py     # Zoho Books rate updater
-│   │   ├── run_automation.py        # Orchestrator
-│   │   ├── run_daily.sh             # Shell wrapper for cron
-│   │   └── icegate_rates.json       # Latest fetched rates (auto-generated)
-│   └── payment_automation/
-│       ├── generate-bank-payment.ts # Bank payment file generator
-│       ├── generate-payments-csv.ts # Payment summary CSV generator
-│       ├── notification-store.ts    # JSON notification database store
-│       ├── notification-service.ts  # Zoho email trigger service
-│       ├── sync-notifications.ts    # CLI batch notification script
-│       └── reconcile-statement.ts   # Reconciliation & payment recorder
+│   │   ├── fetch_icegate_rates.py     # ICEGATE rate fetcher
+│   │   ├── update_zoho_rates.py       # Zoho Books rate updater
+│   │   ├── run_automation.py          # Orchestrator
+│   │   ├── run_daily.sh               # Shell wrapper for cron
+│   │   └── icegate_rates.json         # Latest fetched rates (auto-generated)
+│   ├── payment_automation/
+│   │   ├── generate-bank-payment.ts   # Bank payment file generator (Kotak bulk upload)
+│   │   ├── generate-payments-csv.ts   # Payment summary CSV generator
+│   │   ├── statement-parser.ts        # Universal PDF & spreadsheet statement parser
+│   │   ├── payment-matcher.ts         # Bidirectional AP/AR transaction matcher
+│   │   ├── notification-store.ts      # JSON notification database store
+│   │   ├── notification-service.ts    # Zoho email trigger service
+│   │   ├── sync-notifications.ts      # CLI batch notification script
+│   │   └── reconcile-statement.ts     # CLI statement reconciliation & payment recorder
+│   └── dashboard/
+│       ├── public/                    # Single-Page App (HTML, CSS, JS)
+│       └── server.ts                  # Express API server & SSE log streamer
 ├── Zoho Automation Case Study/ # Documentation package
 │   ├── zoho_automation_case_study.md
 │   ├── case_study_invoice_processing.md
@@ -334,6 +356,25 @@ All paths and formats are configurable via `.env`:
 
 - Zoho Books rejects attachments with filenames over 100 characters
 - The email processor automatically shortens filenames using an MD5 hash prefix, staying well below Zoho's limit
+
+### "Error: Only CSV and Excel files (.xlsx, .xls) are allowed" or Server Auto-Reload
+
+- When running the dashboard via `npm run dashboard` (`ts-node src/dashboard/server.ts`), code changes do not auto-reload.
+- If you pull new updates or update file filters/routes, stop the server in your terminal (`Ctrl+C`) and restart it (`npm run dashboard`).
+
+### Password-Protected Bank Statements & Vendor Invoices
+
+- The suite auto-detects encrypted PDFs and attempts decryption using common candidate passwords:
+  - Kotak Account Number (e.g., `5253078611`) or CRN (`995496846`)
+  - Organization PAN and GSTIN
+  - Digits found in email subject or filename
+- To configure specific passwords for vendors or bank accounts, maintain entries in `data/vendor_passwords.json`:
+  ```json
+  {
+    "kotak": "5253078611",
+    "vendor_pan": "ABCDE1234F"
+  }
+  ```
 
 ## Security
 
